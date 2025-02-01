@@ -1,0 +1,40 @@
+# Node.js dependencies (client)
+client/node_modules/
+
+# Next.js build output (client)
+client/.next/
+
+# Python virtual environment (server)
+server/venv/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.idea/
+.vscode/
+
+# Environment variables
+*.env
+*.env.local
+
+# Logs
+*.log
+
+# Docker-related
+*.dockerignore
+
+# Cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore build artifacts
+client/.next/
+client/out/
+server/__pycache__/
+
+# Miscellaneous
+*.bak
+*.swp
