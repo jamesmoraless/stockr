@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/firebase/config"; // Adjust your alias or relative path if needed
 
-export default function HomePage() {
+export default function FinvizPage() {
   const [user, setUser] = useState<null | any>(null);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function HomePage() {
 
   return (
       <div className="flex items-start justify-center h-screen pt-60">
-          <h1 className="text-2xl font-bold"> HOME
+          <h1 className="text-2xl font-bold"> STATS
               finances </h1>
       </div>
   );

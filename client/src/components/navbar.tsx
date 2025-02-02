@@ -43,6 +43,11 @@ export default function Navbar() {
                 </Link>
               </li>
               <li className="nav-item me-lg-3">
+                <Link href="/finviz" className="nav-link">
+                  Finviz
+                </Link>
+              </li>
+              <li className="nav-item me-lg-3">
                 <Link href="/transactions" className="nav-link">
                   Transactions
                 </Link>
@@ -59,7 +64,7 @@ export default function Navbar() {
           <div className="navbar-nav ms-auto">
             <div className="nav-item dropdown">
               <a
-                className="nav-link dropdown-toggle"
+                  className="nav-link dropdown-toggle"
                 href="#"
                 id="navbarDropdown"
                 role="button"
