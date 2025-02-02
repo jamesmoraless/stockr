@@ -17,7 +17,7 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/"); // Redirect on success
+      router.push("/home"); // Redirect on success
     } catch (err: any) {
       setError(err.message);
     }

@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "@/firebase/config"; // Adjust if needed based on your tsconfig paths
+import { auth } from "@/firebase/config"; // Adjust the path as needed
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const [user, setUser] = useState<null | any>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -14,6 +16,16 @@ export default function Navbar() {
     });
     return () => unsubscribe();
   }, []);
+
+  const handleLogout = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    try {
+      await signOut(auth);
+      router.push("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   if (user) {
     // Navbar for authenticated users
@@ -23,21 +35,10 @@ export default function Navbar() {
           <Link href="/" className="navbar-brand">
             Stockr
           </Link>
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarLoggedIn"
-            aria-controls="navbarLoggedIn"
-            aria-expanded="false"
-            aria-label="Toggle navigation"
-          >
-            <span className="navbar-toggler-icon" />
-          </button>
-          <div className="collapse navbar-collapse justify-content-center" id="navbarLoggedIn">
+          <div className="justify-content-center" id="navbarLoggedIn">
             <ul className="navbar-nav mb-2 mb-lg-0">
               <li className="nav-item me-lg-3">
-                <Link href="/" className="nav-link">
+                <Link href="/home" className="nav-link">
                   Home
                 </Link>
               </li>
@@ -52,6 +53,8 @@ export default function Navbar() {
                 </Link>
               </li>
             </ul>
+
+
           </div>
           <div className="navbar-nav ms-auto">
             <div className="nav-item dropdown">
@@ -67,7 +70,7 @@ export default function Navbar() {
               </a>
               <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                 <li>
-                  <a className="dropdown-item" href="#" onClick={() => signOut(auth)}>
+                  <a className="dropdown-item" href="#" onClick={handleLogout}>
                     Logout
                   </a>
                 </li>
@@ -85,18 +88,8 @@ export default function Navbar() {
           <Link href="/" className="navbar-brand">
             Stockr
           </Link>
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarLoggedOut"
-            aria-controls="navbarLoggedOut"
-            aria-expanded="false"
-            aria-label="Toggle navigation"
-          >
-            <span className="navbar-toggler-icon" />
-          </button>
-          <div className="collapse navbar-collapse justify-content-end" id="navbarLoggedOut">
+
+          <div className="justify-content-end" id="navbarLoggedOut">
             <ul className="navbar-nav mb-2 mb-lg-0">
               <li className="nav-item me-lg-3">
                 <Link href="/login" className="nav-link">

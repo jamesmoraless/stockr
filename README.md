@@ -17,3 +17,8 @@ remove specific images: docker rmi <image_id>
 
 rebuild and run containers: docker-compose up --build
 
+
+frontend:
+/app contains all the different pages
+/components contains the different reusable components
+/firebase is used for initialization and configuration
