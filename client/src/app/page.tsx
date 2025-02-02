@@ -5,15 +5,16 @@ import { useState, useEffect } from "react";
 export default function Home() {
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:5001/")
-      .then((res) => res.json())
-      .then((data) => setMessage(data.message));
-  }, []);
+useEffect(() => {
+  fetch("http://localhost:5001/")
+    .then((res) => res.json())
+    .then((data) => setMessage(data.message))
+    .catch((err) => console.error("Error fetching data:", err));
+}, []);
 
   return (
     <div className="flex items-center justify-center h-screen">
-      <h1 className="text-2xl font-bold">{message}</h1>
+      <h1 className="text-2xl font-bold"> Stockr: A new way to check current market trends and personal finances </h1>
     </div>
   );
 }
