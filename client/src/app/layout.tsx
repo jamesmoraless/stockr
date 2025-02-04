@@ -4,8 +4,8 @@ import Navbar from "@/components/navbar";
 import Script from "next/script";
 
 export const metadata = {
-  title: "Finance Tracker",
-  description: "Your personal finance tracker",
+  title: "Stockr",
+  description: "",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

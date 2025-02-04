@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/config";
+import PublicRoute from "@/components/publicroute";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,15 +16,42 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      setMessage("Registration successful! Please log in.");
+      // 1. Create Firebase auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUid = userCredential.user.uid;
+
+      console.log('usercrediential');
+      console.log(userCredential);
+
+      console.log('firebaseid');
+      console.log(firebaseUid);
+
+
+
+      // 2. Create user in your PostgreSQL database
+      // here IS WHERE WE ARE CALLING THE API TO CREATE A USER
+      // `${process.env.NEXT_PUBLIC_API_URL}/api/users`
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firebase_uid: firebaseUid }),
+      });
+
+
+      const responseData = await response.json(); // 👈 Get JSON response
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Registration failed');
+      }
+
+      setMessage("Registration successful! Redirecting...");
       setTimeout(() => router.push("/login"), 1500);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Registration failed");
     }
   };
 
   return (
+   <PublicRoute>
     <div className="container d-flex justify-content-center align-items-center" style={{ height: "100vh" }}>
       <div className="col-md-6">
         <h1>Register</h1>
@@ -57,5 +85,6 @@ export default function RegisterPage() {
         <p className="mt-3">Already have an account? <a href="/login">Login</a></p>
       </div>
     </div>
+      </PublicRoute>
   );
 }

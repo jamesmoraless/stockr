@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/firebase/config";
+import PublicRoute from "@/components/publicroute";
 
 
 export default function LoginPage() {
@@ -35,6 +36,7 @@ export default function LoginPage() {
   };
 
   return (
+     <PublicRoute>
     <div className="container d-flex justify-content-center align-items-center" style={{ height: "100vh" }}>
       <div className="col-md-6">
         <h1>Login</h1>
@@ -70,5 +72,6 @@ export default function LoginPage() {
         <p className="mt-3">Don't have an account? <a href="/register">Register</a></p>
       </div>
     </div>
+    </PublicRoute>
   );
 }

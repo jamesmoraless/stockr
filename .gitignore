@@ -18,6 +18,8 @@ Thumbs.db
 # Environment variables
 *.env
 *.env.local
+.env
+server/stockr-cb868-firebase-adminsdk-fbsvc-3345839651.json
 
 # Logs
 *.log

@@ -16,10 +16,14 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const auth = getAuth(app);  // <-- Initialize the auth instance
 
-// Export the auth (and analytics if needed)
-export { auth, analytics };
+// Only initialize analytics if window is defined
+let analytics;
+if (typeof window !== "undefined") {
+  analytics = getAnalytics(app);
+}
+
+const auth = getAuth(app);
+
+export { app, auth, analytics };
