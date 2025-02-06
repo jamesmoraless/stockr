@@ -9,6 +9,7 @@ from firebase_admin import credentials, auth
 from finvizfinance.quote import finvizfinance
 import requests  # if needed for other endpoints
 from finvizfinance.calendar import Calendar  # Add this import at the top
+import pandas as pd
 
 app = Flask(__name__)
 CORS(
@@ -45,10 +46,21 @@ class User(db.Model):
 # watchlist is broken
 class Watchlist(db.Model):
     __tablename__ = 'watchlist'
-    id = db.Column(db.String(36), primary_key=True)
+    id = db.Column(
+        db.String(36),
+        primary_key=True,
+        server_default=db.text("uuid_generate_v4()")
+    )
     user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     ticker = db.Column(db.String(10), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+
+
+def convert_data(data):
+    """Convert a pandas DataFrame to a dictionary if needed."""
+    if isinstance(data, pd.DataFrame):
+        return data.to_dict(orient='records')
+    return data
 
 
 
@@ -57,8 +69,9 @@ class Watchlist(db.Model):
 def authenticate():
     if request.method == "OPTIONS":
         return  # Skip auth for preflight
+
     # Endpoints that require authentication
-    if request.endpoint in ['get_watchlist', 'add_to_watchlist', 'delete_from_watchlist']:
+    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
@@ -73,23 +86,38 @@ def authenticate():
         except Exception as e:
             return jsonify({"error": str(e)}), 401
 
-def get_finviz_data(ticker):
-    """
-    Uses the finvizfinance library to get ticker data.
-    """
-    try:
-        stock = finvizfinance(ticker)
-        data = {
-            "fundamentals": stock.ticker_fundament(),
-            "description": stock.ticker_description(),
-            "outer_ratings": stock.ticker_outer_ratings(),
-            "news": stock.ticker_news(),
-            # Uncomment the next line if you wish to download and save the chart image.
-            # "charts": stock.TickerCharts(out_dir='asset')
-        }
-        return data
-    except Exception as e:
-        return {"error": str(e)}
+
+def fetch_stock_data(ticker):
+    ticker = ticker.upper()
+    stock = finvizfinance(ticker)
+
+    fundamentals_data = convert_data(stock.ticker_fundament())
+    if isinstance(fundamentals_data, list) and len(fundamentals_data) > 0:
+        fundamentals_data = fundamentals_data[0]
+
+    filtered_fundamentals = {
+        "current_price": fundamentals_data.get("Price"),
+        "pe_ratio": fundamentals_data.get("P/E"),
+        "52_week_high": fundamentals_data.get("52W High"),
+        "52_week_low": fundamentals_data.get("52W Low"),
+        "lt_debt_equity": fundamentals_data.get("LT Debt/Eq"),
+        "price_fcf": fundamentals_data.get("P/FCF"),
+        "operating_margin": fundamentals_data.get("Oper. Margin"),
+        "beta": fundamentals_data.get("Beta"),
+        "company": fundamentals_data.get("Company"),
+        "change": fundamentals_data.get("Change"),
+        "sector": fundamentals_data.get("Sector"),
+        "avg_volume": fundamentals_data.get("Avg Volume"),
+        "volume": fundamentals_data.get("Volume")
+    }
+
+    return {
+        "ticker": ticker,
+        "fundamentals": filtered_fundamentals
+    }
+
+
+
 
 # API Endpoints
 @app.route('/api/calendar', methods=['GET'])
@@ -100,11 +128,11 @@ def get_economic_calendar():
 def home():
     return jsonify({"message": "FinViz Stock Watchlist API is running!"})
 
+
+
+"""
 @app.route('/api/watchlist', methods=['GET'])
 def get_watchlist():
-    """
-    Retrieve the watchlist for the authenticated user along with Finviz data for each ticker.
-    """
     watchlist_items = Watchlist.query.filter_by(user_id=g.user.id).all()
     response = [{
         'id': item.id,
@@ -112,12 +140,11 @@ def get_watchlist():
         'data': get_finviz_data(item.ticker)
     } for item in watchlist_items]
     return jsonify(response)
+"""
 
+"""
 @app.route('/api/watchlist', methods=['POST'])
 def add_to_watchlist():
-    """
-    Add a new ticker to the authenticated user's watchlist.
-    """
     data = request.get_json()
     if not data or 'ticker' not in data:
         return jsonify({"error": "Ticker is required"}), 400
@@ -132,12 +159,12 @@ def add_to_watchlist():
     db.session.add(new_item)
     db.session.commit()
     return jsonify({"message": "Added to watchlist", "id": new_item.id}), 201
+"""
+
+"""
 
 @app.route('/api/watchlist/<string:item_id>', methods=['DELETE'])
 def delete_from_watchlist(item_id):
-    """
-    Delete a ticker from the authenticated user's watchlist.
-    """
     item = Watchlist.query.filter_by(id=item_id, user_id=g.user.id).first()
     if not item:
         return jsonify({"error": "Watchlist item not found"}), 404
@@ -145,17 +172,94 @@ def delete_from_watchlist(item_id):
     db.session.delete(item)
     db.session.commit()
     return jsonify({"message": "Deleted from watchlist"}), 200
+"""
+
+@app.route('/api/stock/<string:ticker>', methods=['GET'])
+def get_stock_data(ticker):
+    try:
+        response_data = fetch_stock_data(ticker)
+        return jsonify(response_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/watchlist/stocks', methods=['GET'])
+def get_watchlist_stocks():
+    try:
+        watchlist_items = Watchlist.query.filter_by(user_id=g.user.id).all()
+        tickers = [item.ticker for item in watchlist_items]
+
+        stocks_data = []
+        for ticker in tickers:
+            try:
+                stock_data = fetch_stock_data(ticker)
+                stocks_data.append(stock_data)
+            except Exception as inner_error:
+                stocks_data.append({
+                    "ticker": ticker,
+                    "error": str(inner_error)
+                })
+
+        return jsonify(stocks_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/watchlist', methods=['POST'])
+def add_to_watchlist():
+    data = request.get_json()
+    if not data or 'ticker' not in data:
+        return jsonify({"error": "Ticker is required"}), 400
+
+    ticker = data['ticker'].upper()
+    try:
+        new_watchlist_item = Watchlist(
+            user_id=g.user.id,
+            ticker=ticker
+        )
+        db.session.add(new_watchlist_item)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Ticker added to watchlist",
+            "ticker": ticker,
+            "user_id": g.user.id,
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+# FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @app.route('/api/users', methods=['POST'])
 def create_user():
     try:
         data = request.get_json()
-        print("Received data:", data)  # 👈 Add logging
+        print("Received data:", data)
 
         if not data or 'firebase_uid' not in data:
             return jsonify({"error": "Firebase UID is required"}), 400
 
-        # Check for existing user first
         existing_user = User.query.filter_by(firebase_uid=data['firebase_uid']).first()
         if existing_user:
             return jsonify({"message": "User already exists", "id": existing_user.id}), 200
@@ -166,11 +270,11 @@ def create_user():
         )
         db.session.add(new_user)
         db.session.commit()
-        print("User created successfully:", new_user.id)  # 👈 Add logging
+        print("User created successfully:", new_user.id)
         return jsonify({"message": "User created", "id": new_user.id}), 201
 
     except Exception as e:
-        print("Error creating user:", str(e))  # 👈 Critical error logging
+        print("Error creating user:", str(e))
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
