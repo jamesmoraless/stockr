@@ -7,6 +7,7 @@ from firebase_admin import credentials
 import os
 from firebase_admin import credentials, auth
 from finvizfinance.quote import finvizfinance
+from finvizfinance.news import News
 import requests  # if needed for other endpoints
 from finvizfinance.calendar import Calendar  # Add this import at the top
 import pandas as pd
@@ -86,7 +87,7 @@ def authenticate():
         except Exception as e:
             return jsonify({"error": str(e)}), 401
 
-
+##Might be worth checking this api endpoint for etf specific data: https://www.alphavantage.co/documentation/#etf-profile
 def fetch_stock_data(ticker):
     ticker = ticker.upper()
     stock = finvizfinance(ticker)
@@ -110,6 +111,14 @@ def fetch_stock_data(ticker):
         "avg_volume": fundamentals_data.get("Avg Volume"),
         "volume": fundamentals_data.get("Volume")
     }
+    # should add EBITDA, EBIT, Market Cap, Revenue, Net Income, Dividend Yield, Profit Margin, QuarterlyEarningsGrowthYOY, QuarterlyRevenueGrowthYOY
+    # AnalystTargetPrice,     "AnalystRatingStrongBuy": "2",
+    # "AnalystRatingBuy": "5",
+    # "AnalystRatingHold": "9",
+    # "AnalystRatingSell": "2",
+    # "AnalystRatingStrongSell": "1",
+    # "EVToRevenue": "4.578",
+    # "EVToEBITDA": "23.59",
 
     return {
         "ticker": ticker,
@@ -235,22 +244,147 @@ def add_to_watchlist():
 
 # FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ
 
+# BELOW IS ALPHAVANTAGE
 
 
+@app.route('/api/market-news', methods=['GET'])
+def get_market_news():
+    try:
+        news = News()
+        news_data = news.get_news()
+        news_data_converted = {}
+        for key, value in news_data.items():
+            if hasattr(value, "to_dict"):
+                news_data_converted[key] = value.to_dict(orient='records')
+            else:
+                news_data_converted[key] = value
+
+        response = {"relevant_news": news_data_converted}
+        return jsonify(response), 200    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route('/api/ticker-search', methods=['GET'])
+def get_ticker():
+    keyword = request.args.get('keywords', 'Microsoft')
+    
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+    
+    url = f'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={keyword}&apikey={api_key}'
+    r = requests.get(url)
+    if r.status_code != 200:
+        return jsonify({"error": "Failed to fetch data from Alpha Vantage"}), 500
+
+    data = r.json()
+    
+    return jsonify(data), 200
+
+@app.route('/api/news-sentiment', methods=['GET'])
+def get_news_sentiment():
+# The Alpha Vantage API supports the following topics:
+# Blockchain: blockchain
+# Earnings: earnings
+# IPO: ipo
+# Mergers & Acquisitions: mergers_and_acquisitions
+# Financial Markets: financial_markets
+# Economy - Fiscal Policy: economy_fiscal
+# Economy - Monetary Policy: economy_monetary
+# Economy - Macro/Overall: economy_macro
+# Energy & Transportation: energy_transportation
+# Finance: finance
+# Life Sciences: life_sciences
+# Manufacturing: manufacturing
+# Real Estate & Construction: real_estate
+# Retail & Wholesale: retail_wholesale
+# Technology: technology
+
+    tickers = request.args.get('tickers')
+    if not tickers:
+        return jsonify({"error": "The 'tickers' query parameter is required."}), 400
+
+    topics = request.args.get('topics')
+
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+
+    url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={tickers}'
+    
+    if topics:
+        url += f'&topics={topics}'
+
+    url += f'&apikey={api_key}'
+    print(url)
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status() 
+    except requests.RequestException as req_err:
+        return jsonify({"error": f"Failed to fetch data from Alpha Vantage: {req_err}"}), 500
+
+    data = response.json()
+
+    return jsonify(data), 200
+
+@app.route('/api/income-statement', methods=['GET'])
+def get_income_statement():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({"error": "The 'symbol' query parameter is required."}), 400
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+
+    url = f'https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={symbol}&apikey={api_key}'
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  
+    except requests.RequestException as req_err:
+        return jsonify({"error": f"Failed to fetch data from Alpha Vantage: {req_err}"}), 500
+
+    data = response.json()
+
+    return jsonify(data), 200
+
+@app.route('/api/balance-sheet', methods=['GET'])
+def get_balance_sheet():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({"error": "The 'symbol' query parameter is required."}), 400
+
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+
+    url = f'https://www.alphavantage.co/query?function=BALANCE_SHEET&symbol={symbol}&apikey={api_key}'
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  
+    except requests.RequestException as req_err:
+        return jsonify({"error": f"Failed to fetch data from Alpha Vantage: {req_err}"}), 500
+
+    data = response.json()
+
+    return jsonify(data), 200
+
+@app.route('/api/cash-flow', methods=['GET'])
+def get_cash_flow():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({"error": "The 'symbol' query parameter is required."}), 400
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+
+    url = f'https://www.alphavantage.co/query?function=CASH_FLOW&symbol={symbol}&apikey={api_key}'
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  
+    except requests.RequestException as req_err:
+        return jsonify({"error": f"Failed to fetch data from Alpha Vantage: {req_err}"}), 500
+
+    data = response.json()
+
+    return jsonify(data), 200
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+###########################################
 @app.route('/api/users', methods=['POST'])
 def create_user():
     try:
