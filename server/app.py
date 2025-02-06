@@ -170,19 +170,6 @@ def add_to_watchlist():
     return jsonify({"message": "Added to watchlist", "id": new_item.id}), 201
 """
 
-"""
-
-@app.route('/api/watchlist/<string:item_id>', methods=['DELETE'])
-def delete_from_watchlist(item_id):
-    item = Watchlist.query.filter_by(id=item_id, user_id=g.user.id).first()
-    if not item:
-        return jsonify({"error": "Watchlist item not found"}), 404
-
-    db.session.delete(item)
-    db.session.commit()
-    return jsonify({"message": "Deleted from watchlist"}), 200
-"""
-
 @app.route('/api/stock/<string:ticker>', methods=['GET'])
 def get_stock_data(ticker):
     try:

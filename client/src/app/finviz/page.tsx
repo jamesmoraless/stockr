@@ -149,141 +149,129 @@ export default function Home() {
 
 
   return (
-    <ProtectedRoute>
-      <div className="container mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* First Column: Watchlist */}
+ <ProtectedRoute>
+      <div className="container mx-auto p-4 h-screen">
+        <div className="flex flex-col md:flex-row justify-between items-center mt-4">
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold">Watchlist</h1>
-              <button
-                onClick={() => setShowAddStockModal(true)}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              >
-                Add Stock
-              </button>
-            </div>
-
-            {/* Add Stock Modal */}
-            {showAddStockModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="bg-white p-6 rounded-lg w-96">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Add New Stock</h2>
-                    <button
-                      onClick={() => setShowAddStockModal(false)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <form className="space-y-4" onSubmit={handleAddStock}>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Ticker Symbol
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full p-2 border rounded"
-                        placeholder="e.g. AAPL"
-                        required
-                        value={tickerInput}
-                        onChange={(e) => setTickerInput(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowAddStockModal(false)}
-                        className="px-4 py-2 border rounded hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                      >
-                        Add Stock
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Watchlist Table */}
-            <div className="border rounded-lg overflow-hidden">
-              {loading ? (
-                <div className="p-4 text-center">Loading watchlist...</div>
-              ) : (
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Symbol
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Change
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Volume
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-
-                    {watchlist.length > 0 ? (
-                    watchlist.map((item) => (
-                    <tr key={item.ticker}>
-                    <td className="px-6 py-4">{item.ticker}</td>
-                    <td className="px-6 py-4">
-                    {item.fundamentals?.current_price || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 text-green-500">
-                    {item.fundamentals?.change || "N/A"}
-                    </td>
-                    <td className="px-6 py-4">
-                    {item.fundamentals?.volume || "N/A"}
-                    </td>
-                    </tr>
-                    ))
-                    ) : (
-                    <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center">
-                    No stocks in your watchlist.
-                    </td>
-                    </tr>
-                    )}
-
-                  </tbody>
-
-
-                </table>
-              )}
-            </div>
+            <h1 className="text-2xl font-bold">Watchlist</h1>
           </div>
-
-          {/* Second Column: Additional Content */}
-          <div>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-2xl font-bold mb-4">Additional Section</h2>
-              <p>
-                This is your second column. You can add charts, news, or any other
-                content relevant to your project.
-              </p>
-              <button
-                type="button"
-                onClick={grabInformation}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Get Economic Calendar
-              </button>
-            </div>
+          <div className="flex space-x-2">
+            <button
+              className="btn btn-primary bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              onClick={() => setShowAddStockModal(true)}>
+              Add Stock
+            </button>
           </div>
         </div>
+
+        {/* Watchlist Table */}
+        <div className="overflow-x-auto mt-4 border rounded-lg">
+          {loading ? (
+            <div className="p-4 text-center">Loading watchlist...</div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Symbol
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Change
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Volume
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {watchlist.length > 0 ? (
+                  watchlist.map((item) => (
+                    <tr key={item.ticker}>
+                      <td className="px-6 py-4">{item.ticker}</td>
+                      <td className="px-6 py-4">
+                        {item.fundamentals?.current_price || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 text-green-500">
+                        {item.fundamentals?.change || "N/A"}
+                      </td>
+                      <td className="px-6 py-4">
+                        {item.fundamentals?.volume || "N/A"}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-4 text-center">
+                      No stocks in your watchlist.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Add Stock Popup Modal */}
+        {showAddStockModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg w-96 relative">
+              <span
+                className="absolute top-2 right-2 cursor-pointer text-xl font-bold text-gray-500 hover:text-gray-700"
+                onClick={() => setShowAddStockModal(false)}
+              >
+                &times;
+              </span>
+              <h2 className="text-xl font-semibold mb-4">Add New Stock</h2>
+              <form className="space-y-4" onSubmit={handleAddStock}>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Ticker Symbol
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded"
+                    placeholder="e.g. AAPL"
+                    required
+                    value={tickerInput}
+                    onChange={(e) => setTickerInput(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStockModal(false)}
+                    className="px-4 py-2 border rounded hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Add Stock
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Inline Styles for Popup (optional) */}
+        <style jsx>{`
+          /* Additional popup styling if needed */
+          .popup {
+            display: block;
+          }
+          .popup-content {
+            width: 400px;
+          }
+          .close {
+            cursor: pointer;
+          }
+        `}</style>
       </div>
     </ProtectedRoute>
   );
