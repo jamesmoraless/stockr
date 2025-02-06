@@ -17,8 +17,12 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push("/home"); // Redirect on success
+      const userCredentials = await signInWithEmailAndPassword(auth, email, password);
+      
+      const firebaseUid = userCredentials.user.uid;
+      console.log("User authenticated:", userCredentials);
+      console.log("Firebase UID:", firebaseUid);
+
     } catch (err: any) {
       setError(err.message);
     }
