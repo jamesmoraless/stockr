@@ -72,7 +72,7 @@ def authenticate():
         return  # Skip auth for preflight
 
     # Endpoints that require authentication
-    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks']:
+    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
@@ -223,6 +223,26 @@ def add_to_watchlist():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/watchlist/<string:ticker>', methods=['DELETE'])
+def delete_from_watchlist(ticker):
+    # Convert the ticker to uppercase for consistency
+    ticker = ticker.upper()
+    # Find the watchlist item for the current user with the given ticker
+    item = Watchlist.query.filter_by(user_id=g.user.id, ticker=ticker).first()
+    if not item:
+        return jsonify({"error": "Ticker not found in watchlist"}), 404
+
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({
+            "message": "Ticker removed from watchlist",
+            "ticker": ticker,
+            "user_id": g.user.id,
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 
