@@ -16,31 +16,20 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      // 1. Create Firebase auth user
+      // Create Firebase auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUid = userCredential.user.uid;
 
-      console.log('usercrediential');
-      console.log(userCredential);
-
-      console.log('firebaseid');
-      console.log(firebaseUid);
-
-
-
-      // 2. Create user in your PostgreSQL database
-      // here IS WHERE WE ARE CALLING THE API TO CREATE A USER
-      // `${process.env.NEXT_PUBLIC_API_URL}/api/users`
+      // Call your API to create a user in PostgreSQL database
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ firebase_uid: firebaseUid }),
       });
 
-
-      const responseData = await response.json(); // 👈 Get JSON response
+      const responseData = await response.json();
       if (!response.ok) {
-        throw new Error(responseData.error || 'Registration failed');
+        throw new Error(responseData.error || "Registration failed");
       }
 
       setMessage("Registration successful! Redirecting...");
@@ -51,40 +40,58 @@ export default function RegisterPage() {
   };
 
   return (
-   <PublicRoute>
-    <div className="container d-flex justify-content-center align-items-center" style={{ height: "100vh" }}>
-      <div className="col-md-6">
-        <h1>Register</h1>
-        {error && <div className="alert alert-danger">{error}</div>}
-        {message && <div className="alert alert-success">{message}</div>}
-        <form onSubmit={handleRegister}>
-          <div className="mb-3">
-            <label htmlFor="email" className="form-label">Email:</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="form-control"
-            />
-          </div>
-          <div className="mb-3">
-            <label htmlFor="password" className="form-label">Password:</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="form-control"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary">Register</button>
-        </form>
-        <p className="mt-3">Already have an account? <a href="/login">Login</a></p>
+    <PublicRoute>
+      <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
+        <h1 className="text-[10rem] tracking-[-0.1em] -ml-4">Register.</h1>
+        <p className="mt-4 text-2xl tracking-[-0.08em]">
+          Create your account to continue to our platform
+        </p>
+        <div>
+          {/* Display error or success messages */}
+          {error && <div className="text-red-500 text-l mb-4">{error}</div>}
+          {message && <div className="text-green-500 text-l mb-4">{message}</div>}
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-l font-medium">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full p-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-l font-medium">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-[500px] p-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-[500px] py-2 bg-black text-white rounded-md hover:bg-gray-800 transition"
+            >
+              Register
+            </button>
+          </form>
+          <p className="text-l text-gray-600 mt-4">
+            Already have an account?{" "}
+            <a href="/login" className="underline">
+              Login
+            </a>
+          </p>
+        </div>
       </div>
-    </div>
-      </PublicRoute>
+    </PublicRoute>
   );
 }

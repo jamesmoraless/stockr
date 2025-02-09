@@ -52,7 +52,7 @@ def authenticate():
         return  # Skip auth for preflight
 
     # Endpoints that require authentication
-    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'get_cash_balance', 'get_portfolio', 'add_portfolio_entry', 'get_portfolio_for_graph', 'deposit_cash', 'withdraw_cash'  ]:
+    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 'add_portfolio_entry', 'deposit_cash', 'withdraw_cash'  ]:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
@@ -153,8 +153,13 @@ def add_to_watchlist():
 @app.route('/api/stock/<string:ticker>', methods=['GET'])
 def get_stock_data(ticker):
     try:
-        response_data = fetch_stock_data(ticker)
-        return jsonify(response_data), 200
+        # response_data = fetch_stock_data(ticker)
+        # fundamentals_data = convert_data(stock.ticker_fundament())
+        ticker = ticker.upper()
+        stock = finvizfinance(ticker)
+        fundamentals_data = convert_data(stock)
+
+        return fundamentals_data, 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -203,6 +208,26 @@ def add_to_watchlist():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/watchlist/<string:ticker>', methods=['DELETE'])
+def delete_from_watchlist(ticker):
+    # Convert the ticker to uppercase for consistency
+    ticker = ticker.upper()
+    # Find the watchlist item for the current user with the given ticker
+    item = Watchlist.query.filter_by(user_id=g.user.id, ticker=ticker).first()
+    if not item:
+        return jsonify({"error": "Ticker not found in watchlist"}), 404
+
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({
+            "message": "Ticker removed from watchlist",
+            "ticker": ticker,
+            "user_id": g.user.id,
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 
@@ -212,6 +237,77 @@ def add_to_watchlist():
 # FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ
 
 # BELOW IS ALPHAVANTAGE
+
+@app.route('/api/stock/historical/<string:symbol>', methods=['GET'])
+def get_stock_historical(symbol):
+    """
+    Fetches historical weekly adjusted stock price data for the given symbol.
+    Returns a JSON object with two arrays: dates and prices.
+    """
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+    symbol = symbol.upper()
+    url = (
+        f'https://www.alphavantage.co/query?'
+        f'function=TIME_SERIES_WEEKLY_ADJUSTED&symbol={symbol}&'
+        f'outputsize=full&apikey={api_key}'
+    )
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an error for HTTP issues
+        data = response.json()
+
+        # Check for errors in the response
+        if "Error Message" in data:
+            return jsonify({"error": data["Error Message"]}), 400
+        if "Weekly Adjusted Time Series" not in data:
+            return jsonify({"error": "Invalid response from Alpha Vantage"}), 400
+
+        time_series = data["Weekly Adjusted Time Series"]
+        # Sort the dates in ascending order
+        dates = sorted(time_series.keys())
+        # Extract the adjusted close price for each date
+        prices = [time_series[date]["5. adjusted close"] for date in dates]
+
+        graph_data = {"dates": dates, "prices": prices}
+        return jsonify(graph_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/crypto/historical/<string:symbol>', methods=['GET'])
+def get_crypto_historical(symbol):
+    """
+    Fetches historical daily cryptocurrency price data (in USD) for the given symbol.
+    Returns a JSON object with two arrays: dates and prices.
+    """
+    api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
+    symbol = symbol.upper()
+    url = (
+        f'https://www.alphavantage.co/query?'
+        f'function=DIGITAL_CURRENCY_DAILY&symbol={symbol}&market=USD&apikey={api_key}'
+    )
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        # Check for errors in the response
+        if "Error Message" in data:
+            return jsonify({"error": data["Error Message"]}), 400
+        if "Time Series (Digital Currency Daily)" not in data:
+            return jsonify({"error": "Invalid response from Alpha Vantage"}), 400
+
+        time_series = data["Time Series (Digital Currency Daily)"]
+        # Sort the dates in ascending order
+        dates = sorted(time_series.keys())
+        # Extract the closing price in USD for each date (using key "4a. close (USD)")
+        prices = [time_series[date]["4a. close (USD)"] for date in dates]
+
+        graph_data = {"dates": dates, "prices": prices}
+        return jsonify(graph_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/market-news', methods=['GET'])

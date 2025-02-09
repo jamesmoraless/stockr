@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
 export default function Home() {
-  const [message, setMessage] = useState("");
-
   return (
-    <div className="flex items-start justify-center h-screen pt-60">
-      <h1 className="text-2xl font-bold"> Stockr: A new way to check current market trends and personal finances </h1>
+    <div className="flex flex-col items-start justify-center pl-20 min-h-screen pb-40 transform -translate-y-10">
+      <h1 className="text-[10rem] tracking-[-0.1em] -ml-4">Stockr.</h1>
+      <p className="mt-1 text-3xl tracking-[-0.08em] font-medium">
+        Personal Finances and Current Market Trends
+      </p>
     </div>
   );
 }
