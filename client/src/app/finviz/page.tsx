@@ -29,6 +29,17 @@ interface WatchlistItem {
 // This function retrieves your Firebase ID token. Adjust according to your Firebase auth logic.
 async function getFirebaseIdToken(): Promise<string> {
   const auth = getAuth();
+  return new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      unsubscribe(); // stop listening after the first change
+      if (user) {
+        const token = await user.getIdToken();
+        resolve(token);
+      } else {
+        resolve("");
+      }
+    }, reject);
+  });
   const user = auth.currentUser;
   if (user) {
     console.log("User authenticated");

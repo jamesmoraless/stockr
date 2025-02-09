@@ -445,6 +445,25 @@ def get_cash_flow():
     data = response.json()
 
     return jsonify(data), 200
+@app.route('/api/portfolio', methods=['GET'])
+def get_portfolio():
+    try:
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        portfolio_entries = Portfolio.query.filter_by(user_id=g.user.id).all()
+        portfolio_list = [{
+            "ticker": entry.ticker,
+            "shares": float(entry.shares or 0),
+            "average_cost": float(entry.average_cost or 0),
+            "book_value": float(entry.book_value or 0),
+            "market_value": float(entry.market_value or 0),
+        } for entry in portfolio_entries]
+
+        return jsonify({"portfolio": portfolio_list}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/portfolio', methods=['POST'])
 def add_portfolio_entry():
@@ -499,6 +518,23 @@ def add_portfolio_entry():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/portfolio/graph', methods=['GET'])
+def get_portfolio_for_graph():
+    try:
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        portfolio_entries = Portfolio.query.filter_by(user_id=g.user.id).all()
+        portfolio_list = [{
+            "ticker": entry.ticker,
+            "book_value": float(entry.book_value) if entry else 0
+        } for entry in portfolio_entries]
+
+        return jsonify({"portfolio": portfolio_list}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 def recalc_portfolio(ticker, user_id):
     transactions = Transaction.query.filter_by(user_id=user_id, ticker=ticker).all()
