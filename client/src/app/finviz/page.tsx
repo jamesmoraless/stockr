@@ -18,13 +18,17 @@ interface CalendarEvent {
 // This function retrieves your Firebase ID token. Adjust according to your Firebase auth logic.
 async function getFirebaseIdToken(): Promise<string> {
   const auth = getAuth();
-  const user = auth.currentUser;
-  if (user) {
-    console.log('User authenticated');
-    return await user.getIdToken();
-  }
-  console.log('No authenticated user');
-  return "";
+  return new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      unsubscribe(); // stop listening after the first change
+      if (user) {
+        const token = await user.getIdToken();
+        resolve(token);
+      } else {
+        resolve("");
+      }
+    }, reject);
+  });
 }
 
 export default function Home() {

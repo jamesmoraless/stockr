@@ -10,16 +10,20 @@ interface CashModalProps {
 
 // This function retrieves your Firebase ID token. Adjust according to your Firebase auth logic.
 async function getFirebaseIdToken(): Promise<string> {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (user) {
-    console.log('User authenticated');
-    return await user.getIdToken();
+    const auth = getAuth();
+    return new Promise((resolve, reject) => {
+      const unsubscribe = auth.onAuthStateChanged(async (user) => {
+        unsubscribe(); // stop listening after the first change
+        if (user) {
+          const token = await user.getIdToken();
+          resolve(token);
+        } else {
+          resolve("");
+        }
+      }, reject);
+    });
   }
-  console.log('No authenticated user');
-  return "";
-}
-
+  
 
 const CashModal: FC<CashModalProps> = ({ onClose, updateCashBalance }) => {
   const [action, setAction] = useState<'deposit' | 'withdraw'>('deposit');

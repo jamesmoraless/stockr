@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS portfolio (
     shares NUMERIC(12,2) NOT NULL,
     average_cost NUMERIC(12,2),
     market_value NUMERIC(12,2),
-    book_value NUMERIC(12,2),
+    book_value NUMERIC(12,2) DEFAULT 0.0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
