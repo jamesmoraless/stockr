@@ -8,7 +8,14 @@ import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const [user, setUser] = useState<null | any>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const router = useRouter();
+
+    const getUserName = (email: string): string => {
+    if (!email) return "";
+    const name = email.split("@")[0];
+    return name.toLowerCase();
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -27,87 +34,75 @@ export default function Navbar() {
     }
   };
 
+  const toggleDropdown = () => {
+    setDropdownOpen((prev) => !prev);
+  };
+
   if (user) {
     // Navbar for authenticated users
     return (
-      <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div className="container-fluid">
-          <Link href="/" className="navbar-brand">
-            Stockr
+      <nav className="bg-black text-white flex justify-between items-center p-4">
+        {/* Brand */}
+        <Link href="/" className="text-5xl font-playfair tracking-[-0.1em]">
+          Stockr
+        </Link>
+
+        {/* Navigation links */}
+        <div className="flex space-x-4">
+          <Link href="/home" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            Home
           </Link>
-          <div className="justify-content-center" id="navbarLoggedIn">
-            <ul className="navbar-nav mb-2 mb-lg-0">
-              <li className="nav-item me-lg-3">
-                <Link href="/home" className="nav-link">
-                  Home
-                </Link>
-              </li>
-              <li className="nav-item me-lg-3">
-                <Link href="/finviz" className="nav-link">
-                  Finviz
-                </Link>
-              </li>
-              <li className="nav-item me-lg-3">
-                <Link href="/transactions" className="nav-link">
-                  Transactions
-                </Link>
-              </li>
-              <li className="nav-item me-lg-3">
-                <Link href="/statistics" className="nav-link">
-                  Statistics
-                </Link>
-              </li>
-            </ul>
+          <Link href="/finviz" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            Watchlist
+          </Link>
+          <Link href="/transactions" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            default1
+          </Link>
+          <Link href="/statistics" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            default2
+          </Link>
+                  {/* User dropdown */}
 
 
-          </div>
-          <div className="navbar-nav ms-auto">
-            <div className="nav-item dropdown">
+
+        <div className="relative text-3xl font-light hover:underline tracking-[-0.08em]">
+          <button onClick={toggleDropdown} className="text-3xl hover:underline focus:outline-none">
+            {user.displayName || getUserName(user.email)}
+          </button>
+          {dropdownOpen && (
+            <div className="absolute right-0 mt-2 w-32 bg-white text-black shadow-lg">
               <a
-                  className="nav-link dropdown-toggle"
                 href="#"
-                id="navbarDropdown"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
+                onClick={handleLogout}
+                className="block px-4 py-2 hover:bg-gray-200"
               >
-                {user.displayName || user.email}
+                Logout
               </a>
-              <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                <li>
-                  <a className="dropdown-item" href="#" onClick={handleLogout}>
-                    Logout
-                  </a>
-                </li>
-              </ul>
             </div>
-          </div>
+          )}
+        </div>
+
+
         </div>
       </nav>
     );
   } else {
     // Navbar for users who are not logged in
     return (
-      <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div className="container-fluid">
-          <Link href="/" className="navbar-brand">
-            Stockr
-          </Link>
+      <nav className="bg-black text-white flex justify-between font items-center p-4">
+        {/* Brand */}
+        <Link href="/" className="text-5xl font-playfair tracking-[-0.1em]">
+          Stockr
+        </Link>
 
-          <div className="justify-content-end" id="navbarLoggedOut">
-            <ul className="navbar-nav mb-2 mb-lg-0">
-              <li className="nav-item me-lg-3">
-                <Link href="/login" className="nav-link">
-                  Login
-                </Link>
-              </li>
-              <li className="nav-item me-lg-3">
-                <Link href="/register" className="nav-link">
-                  Register
-                </Link>
-              </li>
-            </ul>
-          </div>
+        {/* Login/Register links */}
+        <div className="space-x-4">
+          <Link href="/login" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            Login
+          </Link>
+          <Link href="/register" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            Register
+          </Link>
         </div>
       </nav>
     );
