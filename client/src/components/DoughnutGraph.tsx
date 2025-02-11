@@ -14,6 +14,21 @@ interface PortfolioEntry {
   book_value: number;
 }
 
+async function getFirebaseIdToken(): Promise<string> {
+  const auth = getAuth();
+  return new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      unsubscribe(); // stop listening after the first change
+      if (user) {
+        const token = await user.getIdToken();
+        resolve(token);
+      } else {
+        resolve("");
+      }
+    }, reject);
+  });
+}
+
 const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh }) => {
   const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -21,11 +36,7 @@ const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh }) => {
 
   const fetchPortfolioData = async () => {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) throw new Error("User not authenticated");
-
-      const token = await user.getIdToken();
+      const token = await getFirebaseIdToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/graph`, {
         headers: {
           Authorization: `Bearer ${token}`,

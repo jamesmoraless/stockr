@@ -40,13 +40,6 @@ async function getFirebaseIdToken(): Promise<string> {
       }
     }, reject);
   });
-  const user = auth.currentUser;
-  if (user) {
-    console.log("User authenticated");
-    return await user.getIdToken();
-  }
-  console.log("No authenticated user");
-  return "";
 }
 
 export default function Home() {

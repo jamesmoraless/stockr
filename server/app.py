@@ -52,7 +52,7 @@ def authenticate():
         return  # Skip auth for preflight
 
     # Endpoints that require authentication
-    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 'add_portfolio_entry', 'deposit_cash', 'withdraw_cash'  ]:
+    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 'add_portfolio_entry', 'get_portfolio_for_graph','get_portfolio', 'deposit_cash', 'withdraw_cash'  ]:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
