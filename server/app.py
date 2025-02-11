@@ -52,7 +52,7 @@ def authenticate():
         return  # Skip auth for preflight
 
     # Endpoints that require authentication
-    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 'add_portfolio_entry', 'get_portfolio_for_graph','get_portfolio', 'deposit_cash', 'withdraw_cash'  ]:
+    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 'add_portfolio_entry', 'get_portfolio_for_graph','get_portfolio', 'deposit_cash', 'withdraw_cash', 'delete_transaction', 'get_transactions']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
@@ -549,11 +549,11 @@ def recalc_portfolio(ticker, user_id):
             total_shares += txn_shares
             total_cost += txn_shares * txn_price
         elif txn.transaction_type.lower() == 'sell':
-            total_shares -= txn_shares
-            total_cost -= txn_shares * txn_price  
+            total_shares = max(0, total_shares - txn_shares)  # Prevents negative shares
+            total_cost = max(0, total_cost - txn_shares * txn_price)  # Adjusts total cost
 
-    # Calculate weighted average cost if there is a positive holding.
-    new_avg_cost = (total_cost / total_shares) if total_shares and total_shares != 0 else 0
+    # Calculate new average cost
+    new_avg_cost = (total_cost / total_shares) if total_shares > 0 else 0
 
     portfolio_entry = Portfolio.query.filter_by(user_id=user_id, ticker=ticker).first()
 
@@ -563,8 +563,7 @@ def recalc_portfolio(ticker, user_id):
             portfolio_entry.average_cost = new_avg_cost
             portfolio_entry.book_value = total_shares * new_avg_cost
         else:
-            # If no shares remain (or a negative position), remove the portfolio entry.
-            db.session.delete(portfolio_entry)
+            db.session.delete(portfolio_entry)  # Deletes the portfolio entry if no shares left
     else:
         if total_shares > 0:
             new_portfolio = Portfolio(
@@ -575,7 +574,9 @@ def recalc_portfolio(ticker, user_id):
                 book_value=total_shares * new_avg_cost
             )
             db.session.add(new_portfolio)
+
     db.session.commit()
+
 
 @app.route('/api/transactions', methods=['GET'])
 def get_transactions():
@@ -596,21 +597,34 @@ def get_transactions():
 @app.route('/api/transactions/<string:transaction_id>', methods=['DELETE'])
 def delete_transaction(transaction_id):
     try:
-        # Look up the transaction for the current user
         transaction = Transaction.query.filter_by(id=transaction_id, user_id=g.user.id).first()
         if not transaction:
             return jsonify({"error": "Transaction not found"}), 404
         
-        # Optionally, capture details before deletion (ticker, shares, etc.)
+        user = g.user
         ticker = transaction.ticker
-        # Delete the transaction
+        shares = float(transaction.shares)
+        price = float(transaction.price)
+        total_transaction_value = shares * price
+
+        # Restore cash balance based on transaction type
+        if transaction.transaction_type.lower() == 'buy':
+            user.cash_balance += total_transaction_value
+        elif transaction.transaction_type.lower() == 'sell':
+            user.cash_balance -= total_transaction_value  # Remove sold amount
+
+        # Delete transaction record
         db.session.delete(transaction)
         db.session.commit()
-        
-        # Recalculate or update the portfolio entry for this ticker
-        recalc_portfolio(ticker, g.user.id)
-        
-        return jsonify({"message": "Transaction deleted successfully."}), 200
+
+        # Adjust portfolio holdings accordingly
+        recalc_portfolio(ticker, user.id)
+
+        return jsonify({
+            "message": "Transaction deleted successfully.",
+            "updated_cash_balance": float(user.cash_balance)
+        }), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
