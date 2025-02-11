@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/firebase/config"; // Adjust your alias or relative path if needed
+import { auth } from "@/firebase/config";
 import ProtectedRoute from "@/components/protectedroute";
+import TransactionsTable from "@/components/TransactionsTable";
 
-export default function FinvizPage() {
+export default function TransactionsPage() {
   const [user, setUser] = useState<null | any>(null);
 
   useEffect(() => {
@@ -16,11 +17,11 @@ export default function FinvizPage() {
   }, []);
 
   return (
-      <ProtectedRoute>
-      <div className="flex items-start justify-center h-screen pt-60">
-          <h1 className="text-2xl font-bold"> TRANSACTIONS
-              finances </h1>
+    <ProtectedRoute>
+      <div className="p-6">
+        <h1 className="text-3xl font-bold mb-6">Transactions</h1>
+        <TransactionsTable />
       </div>
-      </ProtectedRoute>
+    </ProtectedRoute>
   );
 }
