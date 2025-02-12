@@ -1,4 +1,6 @@
 import uuid  # Needed for generating user IDs
+from re import findall
+
 from flask import Flask, jsonify, request, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -12,6 +14,9 @@ import requests  # if needed for other endpoints
 from finvizfinance.calendar import Calendar  # Add this import at the top
 import pandas as pd
 from models import db, User, Watchlist, Portfolio, Transaction
+import json
+
+
 
 
 app = Flask(__name__)
@@ -44,6 +49,13 @@ def convert_data(data):
     return data
 
 
+def safe_convert(value):
+    """Try to JSON-serialize a value, otherwise return its string representation."""
+    try:
+        json.dumps(value)
+        return value
+    except (TypeError, OverflowError):
+        return str(value)
 
 # Auth middleware: Ensure endpoints that require authentication have a valid Firebase ID token
 @app.before_request
@@ -71,6 +83,22 @@ def authenticate():
 def fetch_stock_data(ticker):
     ticker = ticker.upper()
     stock = finvizfinance(ticker)
+    # Retrieve each piece of data from the stock object
+    stock_fundament = stock.ticker_fundament()
+    stock_description = stock.ticker_description()
+    # outer_ratings = stock.ticker_outer_ratings()
+    # news = stock.ticker_news()
+    # inside_trader = stock.ticker_inside_trader()
+
+    # If needed, use convert_data or similar conversion functions
+    # e.g., if any of these return DataFrames that need conversion
+    stock_fundament = convert_data(stock_fundament)
+    stock_description = convert_data(stock_description)
+    # outer_ratings = convert_data(outer_ratings)
+    # news = convert_data(news)
+    # inside_trader = convert_data(inside_trader)
+
+
 
     fundamentals_data = convert_data(stock.ticker_fundament())
     if isinstance(fundamentals_data, list) and len(fundamentals_data) > 0:
@@ -89,7 +117,18 @@ def fetch_stock_data(ticker):
         "change": fundamentals_data.get("Change"),
         "sector": fundamentals_data.get("Sector"),
         "avg_volume": fundamentals_data.get("Avg Volume"),
-        "volume": fundamentals_data.get("Volume")
+        "volume": fundamentals_data.get("Volume"),
+        "market_cap": fundamentals_data.get("Market Cap"),
+        "forward_pe": fundamentals_data.get("Forward P/E"),
+        "eps_this_year": fundamentals_data.get("EPS this Y"),
+        "eps_ttm": fundamentals_data.get("EPS (ttm)"),  # Earnings per share over the last 12 months
+        "peg_ratio": fundamentals_data.get("PEG"),  # P/E adjusted for growth rate
+        "roe": fundamentals_data.get("ROE"),  # Return on Equity
+        "roa": fundamentals_data.get("ROA"),  # Return on Assets
+        "profit_margin": fundamentals_data.get("Profit Margin"),
+        "sales": fundamentals_data.get("Sales"),  # Revenue
+        "debt_eq": fundamentals_data.get("Debt/Eq"),  # Leverage indicator (Debt/Equity Ratio)
+        "current_ratio": fundamentals_data.get("Current Ratio")  # Liquidity measure
     }
     # should add EBITDA, EBIT, Market Cap, Revenue, Net Income, Dividend Yield, Profit Margin, QuarterlyEarningsGrowthYOY, QuarterlyRevenueGrowthYOY
     # AnalystTargetPrice,     "AnalystRatingStrongBuy": "2",
@@ -102,6 +141,7 @@ def fetch_stock_data(ticker):
 
     return {
         "ticker": ticker,
+        "description": stock_description,
         "fundamentals": filtered_fundamentals
     }
 
@@ -153,15 +193,37 @@ def add_to_watchlist():
 @app.route('/api/stock/<string:ticker>', methods=['GET'])
 def get_stock_data(ticker):
     try:
-        # response_data = fetch_stock_data(ticker)
-        # fundamentals_data = convert_data(stock.ticker_fundament())
         ticker = ticker.upper()
         stock = finvizfinance(ticker)
-        fundamentals_data = convert_data(stock)
 
-        return fundamentals_data, 200
+        # Retrieve each piece of data from the stock object
+        stock_fundament = stock.ticker_fundament()
+        stock_description = stock.ticker_description()
+        outer_ratings = stock.ticker_outer_ratings()
+        news = stock.ticker_news()
+        inside_trader = stock.ticker_inside_trader()
+
+        # If needed, use convert_data or similar conversion functions
+        # e.g., if any of these return DataFrames that need conversion
+        stock_fundament = convert_data(stock_fundament)
+        stock_description = convert_data(stock_description)
+        outer_ratings = convert_data(outer_ratings)
+        news = convert_data(news)
+        inside_trader = convert_data(inside_trader)
+
+        # Combine all data into a dictionary
+        combined_data = {
+            "fundamentals": stock_fundament,
+            "description": stock_description,
+            "outer_ratings": outer_ratings,
+            "news": news,
+            "inside_trader": inside_trader
+        }
+
+        return jsonify(combined_data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/api/watchlist/stocks', methods=['GET'])
 def get_watchlist_stocks():

@@ -52,7 +52,7 @@ export default function Navbar() {
           <Link href="/home" className="text-3xl font-light hover:underline tracking-[-0.08em]">
             Home
           </Link>
-          <Link href="/finviz" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+          <Link href="/watchlist" className="text-3xl font-light hover:underline tracking-[-0.08em]">
             Watchlist
           </Link>
           <Link href="/transactions" className="text-3xl font-light hover:underline tracking-[-0.08em]">
