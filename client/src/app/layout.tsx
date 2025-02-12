@@ -3,21 +3,48 @@ import { ReactNode } from "react";
 import Navbar from "@/components/navbar";
 import Script from "next/script";
 
-import { Kaisei_HarunoUmi } from 'next/font/google';
+//import { Kaisei_HarunoUmi } from 'next/font/google';
+import localFont from "next/font/local";
 
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
+// const kaisei = Kaisei_HarunoUmi({
+//   subsets: ["latin"],
+//   weight: ["400", "500", "700"],
+// });
 
-import { Inter } from "next/font/google";
+// const inter = localFont({
+//   src: [
+//     {
+//       path: "/fonts/Inter/static/Inter_18pt-Regular.ttf",
+//       weight: "400",
+//       style: "normal",
+//     },
+//   ],
+//   display: "swap",
+//});
 
-// Import the font
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"], // Customize weights as needed
-  variable: "--font-inter",
-});
+
+// const inter = localFont({
+//   src: [
+//     {
+//       path: "/fonts/Inter/static/Inter_18pt-Regular.ttf",
+//       weight: "400",
+//       style: "normal",
+//     },
+//     // {
+//     //   path: "/fonts/Inter/static/Inter_18pt-Bold.ttf",
+//     //   weight: "500",
+//     //   style: "normal",
+//     // },
+//     // {
+//     //   path: "/fonts/Inter/static/Inter_18pt-ExtraBold.ttf",
+//     //   weight: "700",
+//     //   style: "normal",
+//     // },
+//   ],
+//   display: "swap",
+//   //variable: `--font-inter`,
+// });
+
 
 export const metadata = {
   title: "Stockr",
@@ -30,7 +57,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         {/* Additional head elements if needed */}
       </head>
-      <body className={`${kaisei.className} ${inter.variable} overflow-y-hidden`}>
+      <body>
+      {/* <body className={`${inter.className} ${inter.variable} overflow-y-hidden`}> */}
         <Navbar />
         <div className="container">{children}</div>
 

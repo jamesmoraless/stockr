@@ -88,7 +88,7 @@ export default function TransactionsTable() {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-semibold mb-4">Transaction History</h2>
+      <h2 className="text-2xl font-semibold mb-4">Transaction History (Last 15)</h2>
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-200 shadow-md rounded-lg">
           <thead>
@@ -98,7 +98,7 @@ export default function TransactionsTable() {
               <th className="py-3 px-4 text-left">Price</th>
               <th className="py-3 px-4 text-left">Type</th>
               <th className="py-3 px-4 text-left">Date</th>
-              <th className="py-3 px-4 text-center">Actions</th>
+              {/* <th className="py-3 px-4 text-center">Actions</th> */}
             </tr>
           </thead>
           <tbody>
@@ -111,14 +111,14 @@ export default function TransactionsTable() {
                   {txn.transaction_type.toUpperCase()}
                 </td>
                 <td className="py-2 px-4">{new Date(txn.created_at).toLocaleDateString()}</td>
-                <td className="py-2 px-4 text-center">
+                {/* <td className="py-2 px-4 text-center">
                   <button 
                     onClick={() => deleteTransaction(txn.id)}
                     className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded"
                   >
                     Delete
                   </button>
-                </td>
+                </td> */}
               </tr>
             ))}
           </tbody>

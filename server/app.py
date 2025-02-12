@@ -11,7 +11,7 @@ from finvizfinance.news import News
 import requests  # if needed for other endpoints
 from finvizfinance.calendar import Calendar  # Add this import at the top
 import pandas as pd
-from models import db, User, Watchlist, Portfolio, Transaction
+from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
 
 
 app = Flask(__name__)
@@ -52,7 +52,11 @@ def authenticate():
         return  # Skip auth for preflight
 
     # Endpoints that require authentication
-    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 'add_portfolio_entry', 'get_portfolio_for_graph','get_portfolio', 'deposit_cash', 'withdraw_cash', 'delete_transaction', 'get_transactions']:
+    if request.endpoint in ['add_to_watchlist', 'get_watchlist_stocks', 'delete_from_watchlist', 
+                            'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 
+                            'add_portfolio_entry', 'get_portfolio_for_graph','get_portfolio', 'deposit_cash', 
+                            'withdraw_cash', 'delete_transaction', 'get_transactions', 'buy_asset', 'sell_asset', 'get_portfolio_id',
+                            'sell_portfolio_asset', 'add_portfolio_asset']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
@@ -445,28 +449,34 @@ def get_cash_flow():
     data = response.json()
 
     return jsonify(data), 200
-@app.route('/api/portfolio', methods=['GET'])
-def get_portfolio():
+
+@app.route('/api/portfolio/<string:portfolio_id>', methods=['GET'])
+def get_portfolio(portfolio_id):
     try:
         if not hasattr(g, 'user') or g.user is None:
             return jsonify({"error": "User not authenticated"}), 401
 
-        portfolio_entries = Portfolio.query.filter_by(user_id=g.user.id).all()
+        # Ensure the user owns the portfolio
+        portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found or unauthorized"}), 404
+
+        # Fetch holdings from portfolio_holdings table
+        portfolio_entries = PortfolioHolding.query.filter_by(portfolio_id=portfolio_id).all()
         portfolio_list = [{
             "ticker": entry.ticker,
-            "shares": float(entry.shares or 0),
-            "average_cost": float(entry.average_cost or 0),
-            "book_value": float(entry.book_value or 0),
-            "market_value": float(entry.market_value or 0),
+            "shares": float(entry.shares),
+            "average_cost": float(entry.average_cost) if entry.average_cost is not None else 0,
+            "book_value": float(entry.book_value) if entry.book_value is not None else 0,
+            "market_value": 0  # Placeholder, update if market value is available
         } for entry in portfolio_entries]
 
         return jsonify({"portfolio": portfolio_list}), 200
     except Exception as e:
-        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/portfolio', methods=['POST'])
-def add_portfolio_entry():
+@app.route('/api/portfolio/buy', methods=['POST'])
+def buy_asset():
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided."}), 400
@@ -474,61 +484,196 @@ def add_portfolio_entry():
     ticker = data.get('ticker')
     shares = data.get('shares')
     price = data.get('price')
-    transaction_type = data.get('transaction_type', 'buy').lower()
 
     if not ticker or shares is None or price is None:
         return jsonify({"error": "Ticker, shares, and price are required."}), 400
 
     ticker = ticker.upper()
-    cost = float(shares) * float(price)
 
     try:
-        user = g.user  
-        # want to ensure the user holds enough shares (handled in your recalc logic)
-        if transaction_type == 'buy':
-            if float(user.cash_balance) < cost:
-                return jsonify({"error": "Insufficient cash balance."}), 400
-            user.cash_balance = float(user.cash_balance) - cost
-        elif transaction_type == 'sell':
-            user.cash_balance = float(user.cash_balance) + cost
+        user = g.user
+        portfolio = Portfolio.query.filter_by(user_id=user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found"}), 404
 
+        # Create buy transaction
         new_txn = Transaction(
-            user_id=user.id,
+            portfolio_id=portfolio.id,
+            ticker=ticker,
+            shares=shares,
+            price=price,
+            transaction_type="buy"
+        )
+        db.session.add(new_txn)
+        db.session.commit()
+
+        # Recalculate portfolio after buy
+        recalc_portfolio(portfolio.id, ticker)
+
+        return jsonify({"message": "Asset purchased successfully.", "ticker": ticker}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/portfolio/sell', methods=['POST'])
+def sell_asset():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided."}), 400
+
+    ticker = data.get('ticker')
+    shares = data.get('shares')
+    price = data.get('price')
+
+    if not ticker or shares is None or price is None:
+        return jsonify({"error": "Ticker, shares, and price are required."}), 400
+
+    ticker = ticker.upper()
+
+    try:
+        user = g.user
+        portfolio = Portfolio.query.filter_by(user_id=user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found"}), 404
+
+        holding = PortfolioHolding.query.filter_by(portfolio_id=portfolio.id, ticker=ticker).first()
+        
+        # Ensure user has enough shares to sell
+        if not holding or holding.shares < shares:
+            return jsonify({"error": "Not enough shares to sell."}), 400
+
+        # Create sell transaction
+        new_txn = Transaction(
+            portfolio_id=portfolio.id,
+            ticker=ticker,
+            shares=shares,
+            price=price,
+            transaction_type="sell"
+        )
+        db.session.add(new_txn)
+        db.session.commit()
+
+        # Recalculate portfolio after selling
+        recalc_portfolio(portfolio.id, ticker)
+
+        return jsonify({"message": "Asset sold successfully.", "ticker": ticker}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/portfolio/<string:portfolio_id>/add-asset', methods=['POST'])
+def add_portfolio_asset(portfolio_id):
+    try:
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided."}), 400
+
+        ticker = data.get('ticker')
+        shares = data.get('shares')
+        price = data.get('price')
+        transaction_type = data.get('transaction_type', 'buy').lower()
+
+        if not ticker or shares is None or price is None:
+            return jsonify({"error": "Ticker, shares, and price are required."}), 400
+
+        ticker = ticker.upper()
+
+        # Ensure portfolio exists
+        portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found or unauthorized"}), 404
+
+        # Add transaction record
+        new_txn = Transaction(
+            portfolio_id=portfolio.id,
             ticker=ticker,
             shares=shares,
             price=price,
             transaction_type=transaction_type
         )
         db.session.add(new_txn)
-        db.session.commit() 
 
-        recalc_portfolio(ticker, user.id)
-        portfolio_entry = Portfolio.query.filter_by(user_id=user.id, ticker=ticker).first()
+        # Update portfolio holdings
+        recalc_portfolio(portfolio.id, ticker)
 
-        response_data = {
-            "message": "Transaction recorded and portfolio updated successfully.",
-            "ticker": ticker,
-            "shares": float(portfolio_entry.shares) if portfolio_entry else 0,
-            "average_cost": float(portfolio_entry.average_cost) if portfolio_entry else 0,
-            "book_value": float(portfolio_entry.book_value) if portfolio_entry else 0,
-            "cash_balance": float(user.cash_balance)
-        }
-        return jsonify(response_data), 201
+        db.session.commit()
+        return jsonify({"message": "Transaction recorded and portfolio updated successfully."}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/portfolio/<string:portfolio_id>/sell-asset', methods=['POST'])
+def sell_portfolio_asset(portfolio_id):
+    try:
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided."}), 400
+
+        ticker = data.get('ticker')
+        shares = data.get('shares')
+        price = data.get('price')
+        transaction_type = 'sell'
+
+        if not ticker or shares is None or price is None:
+            return jsonify({"error": "Ticker, shares, and price are required."}), 400
+
+        ticker = ticker.upper()
+
+        # Ensure portfolio exists
+        portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found or unauthorized"}), 404
+
+        # Ensure the user has enough shares to sell
+        portfolio_entry = PortfolioHolding.query.filter_by(portfolio_id=portfolio.id, ticker=ticker).first()
+        if not portfolio_entry or portfolio_entry.shares < shares:
+            return jsonify({"error": "Insufficient shares to sell"}), 400
+
+        # Add transaction record
+        new_txn = Transaction(
+            portfolio_id=portfolio.id,
+            ticker=ticker,
+            shares=shares,
+            price=price,
+            transaction_type=transaction_type
+        )
+        db.session.add(new_txn)
+
+        # Update portfolio holdings
+        recalc_portfolio(portfolio.id, ticker)
+
+        db.session.commit()
+        return jsonify({"message": "Transaction recorded and portfolio updated successfully."}), 201
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/portfolio/graph', methods=['GET'])
-def get_portfolio_for_graph():
+
+@app.route('/api/portfolio/graph/<string:portfolio_id>', methods=['GET'])
+def get_portfolio_for_graph(portfolio_id):
     try:
+        # Ensure user is authenticated
         if not hasattr(g, 'user') or g.user is None:
             return jsonify({"error": "User not authenticated"}), 401
 
-        portfolio_entries = Portfolio.query.filter_by(user_id=g.user.id).all()
+        # Ensure the user owns this portfolio
+        portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found or unauthorized"}), 404
+
+        # Retrieve holdings for this portfolio
+        portfolio_entries = PortfolioHolding.query.filter_by(portfolio_id=portfolio_id).all()
         portfolio_list = [{
             "ticker": entry.ticker,
-            "book_value": float(entry.book_value) if entry else 0
+            "book_value": float(entry.book_value) if entry.book_value is not None else 0
         } for entry in portfolio_entries]
 
         return jsonify({"portfolio": portfolio_list}), 200
@@ -536,52 +681,66 @@ def get_portfolio_for_graph():
         return jsonify({"error": str(e)}), 500
 
 
-def recalc_portfolio(ticker, user_id):
-    transactions = Transaction.query.filter_by(user_id=user_id, ticker=ticker).all()
-    
+def recalc_portfolio(portfolio_id, ticker):
+    transactions = Transaction.query.filter_by(portfolio_id=portfolio_id, ticker=ticker).all()
+
     total_shares = 0
     total_cost = 0.0
 
     for txn in transactions:
         txn_shares = float(txn.shares)
         txn_price = float(txn.price)
+
         if txn.transaction_type.lower() == 'buy':
             total_shares += txn_shares
-            total_cost += txn_shares * txn_price
-        elif txn.transaction_type.lower() == 'sell':
-            total_shares = max(0, total_shares - txn_shares)  # Prevents negative shares
-            total_cost = max(0, total_cost - txn_shares * txn_price)  # Adjusts total cost
+            total_cost += txn_shares * txn_price  # Add to cost basis
 
+        elif txn.transaction_type.lower() == 'sell' and total_shares >= txn_shares:
+            avg_cost_per_share = total_cost / total_shares if total_shares > 0 else 0
+            total_shares -= txn_shares
+            total_cost -= txn_shares * avg_cost_per_share  # Reduce cost by the avg cost per share
+
+    # Ensure book value is non-negative
+    new_book_value = max(0, total_cost)
+    
     # Calculate new average cost
-    new_avg_cost = (total_cost / total_shares) if total_shares > 0 else 0
+    new_avg_cost = (new_book_value / total_shares) if total_shares > 0 else 0
 
-    portfolio_entry = Portfolio.query.filter_by(user_id=user_id, ticker=ticker).first()
+    portfolio_entry = PortfolioHolding.query.filter_by(portfolio_id=portfolio_id, ticker=ticker).first()
 
     if portfolio_entry:
         if total_shares > 0:
             portfolio_entry.shares = total_shares
             portfolio_entry.average_cost = new_avg_cost
-            portfolio_entry.book_value = total_shares * new_avg_cost
+            portfolio_entry.book_value = new_book_value
         else:
-            db.session.delete(portfolio_entry)  # Deletes the portfolio entry if no shares left
+            db.session.delete(portfolio_entry)  # Remove asset if sold out
     else:
         if total_shares > 0:
-            new_portfolio = Portfolio(
-                user_id=user_id,
+            new_portfolio_entry = PortfolioHolding(
+                portfolio_id=portfolio_id,
                 ticker=ticker,
                 shares=total_shares,
                 average_cost=new_avg_cost,
-                book_value=total_shares * new_avg_cost
+                book_value=new_book_value
             )
-            db.session.add(new_portfolio)
+            db.session.add(new_portfolio_entry)
 
     db.session.commit()
-
-
 @app.route('/api/transactions', methods=['GET'])
 def get_transactions():
+    """Retrieve all transactions for the authenticated user's portfolio."""
     try:
-        transactions = Transaction.query.filter_by(user_id=g.user.id).order_by(Transaction.created_at.desc()).all()
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        # Get user's portfolio
+        portfolio = Portfolio.query.filter_by(user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found"}), 404
+
+        transactions = Transaction.query.filter_by(portfolio_id=portfolio.id).order_by(Transaction.created_at.desc()).limit(15).all()##limit of 15 recetn transactions
+        
         transactions_list = [{
             "id": txn.id,
             "ticker": txn.ticker,
@@ -590,46 +749,78 @@ def get_transactions():
             "transaction_type": txn.transaction_type,
             "created_at": txn.created_at.isoformat()
         } for txn in transactions]
+
         return jsonify({"transactions": transactions_list}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/api/transactions/<string:transaction_id>', methods=['DELETE'])
 def delete_transaction(transaction_id):
+    """Delete a transaction and update the portfolio accordingly."""
     try:
-        transaction = Transaction.query.filter_by(id=transaction_id, user_id=g.user.id).first()
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        # Find user's portfolio
+        portfolio = Portfolio.query.filter_by(user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found"}), 404
+
+        # Fetch the transaction within the user's portfolio
+        transaction = Transaction.query.filter_by(id=transaction_id, portfolio_id=portfolio.id).first()
         if not transaction:
             return jsonify({"error": "Transaction not found"}), 404
-        
-        user = g.user
+
         ticker = transaction.ticker
         shares = float(transaction.shares)
         price = float(transaction.price)
-        total_transaction_value = shares * price
+        total_value = shares * price
 
-        # Restore cash balance based on transaction type
+        # Modify portfolio holdings based on transaction type
+        holding = PortfolioHolding.query.filter_by(portfolio_id=portfolio.id, ticker=ticker).first()
+
         if transaction.transaction_type.lower() == 'buy':
-            user.cash_balance += total_transaction_value
+            # If it's a buy transaction, we remove the shares and adjust book value
+            if holding:
+                holding.shares -= shares
+                holding.book_value -= total_value
+                if holding.shares <= 0:
+                    db.session.delete(holding)  # Remove holding if zero shares remain
+
         elif transaction.transaction_type.lower() == 'sell':
-            user.cash_balance -= total_transaction_value  # Remove sold amount
+            # If it's a sell transaction, we restore shares into portfolio
+            if holding:
+                holding.shares += shares
+                holding.book_value += total_value
+            else:
+                # If the holding didn't exist before, recreate it
+                new_holding = PortfolioHolding(
+                    id=str(uuid.uuid4()),
+                    portfolio_id=portfolio.id,
+                    ticker=ticker,
+                    shares=shares,
+                    average_cost=price,
+                    book_value=total_value
+                )
+                db.session.add(new_holding)
 
         # Delete transaction record
         db.session.delete(transaction)
         db.session.commit()
 
-        # Adjust portfolio holdings accordingly
-        recalc_portfolio(ticker, user.id)
-
         return jsonify({
             "message": "Transaction deleted successfully.",
-            "updated_cash_balance": float(user.cash_balance)
+            "updated_portfolio": {
+                "ticker": ticker,
+                "shares": float(holding.shares) if holding else 0,
+                "book_value": float(holding.book_value) if holding else 0
+            }
         }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-
 
 ###########################################
 @app.route('/api/users', methods=['POST'])
@@ -643,69 +834,56 @@ def create_user():
 
         existing_user = User.query.filter_by(firebase_uid=data['firebase_uid']).first()
         if existing_user:
-            return jsonify({"message": "User already exists", "id": existing_user.id}), 200
+            portfolio = Portfolio.query.filter_by(user_id=existing_user.id).first()
+            return jsonify({
+                "message": "User already exists",
+                "user_id": existing_user.id,
+                "portfolio_id": portfolio.id if portfolio else None
+            }), 200
 
+        # Create new user
         new_user = User(
             id=str(uuid.uuid4()),
-            firebase_uid=data['firebase_uid'],
-            cash_balance=0.0 
+            firebase_uid=data['firebase_uid']
         )
         db.session.add(new_user)
         db.session.commit()
-        print("User created successfully:", new_user.id)
-        return jsonify({"message": "User created", "id": new_user.id}), 201
+
+        # Assign a portfolio to the user
+        new_portfolio = Portfolio(
+            id=str(uuid.uuid4()),
+            user_id=new_user.id
+        )
+        db.session.add(new_portfolio)
+        db.session.commit()
+
+        print("User and portfolio created successfully:", new_user.id, new_portfolio.id)
+
+        return jsonify({
+            "message": "User created",
+            "user_id": new_user.id,
+            "portfolio_id": new_portfolio.id
+        }), 201
 
     except Exception as e:
         print("Error creating user:", str(e))
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-@app.route('/api/cash/balance', methods=['GET'])
-def get_cash_balance():
-    try:
-        print(float(g.user.cash_balance))
-        # Assumes that authentication middleware has set g.user
-        return jsonify({"cash_balance": float(g.user.cash_balance)}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/cash/deposit', methods=['POST'])
-def deposit_cash():
-    data = request.get_json()
-    amount = data.get('amount')
-    print(amount)
-    if not amount or float(amount) <= 0:
-        return jsonify({"error": "A valid deposit amount is required."}), 400
-    try:
-        user = g.user
-        user.cash_balance = float(user.cash_balance) + float(amount)
-        db.session.commit()
-        return jsonify({
-            "message": "Deposit successful.",
-            "cash_balance": float(user.cash_balance)
-        }), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
     
-@app.route('/api/cash/withdraw', methods=['POST'])
-def withdraw_cash():
-    data = request.get_json()
-    amount = data.get('amount')
-    if not amount or float(amount) <= 0:
-        return jsonify({"error": "A valid withdrawal amount is required."}), 400
+@app.route('/api/portfolio/id', methods=['GET'])
+def get_portfolio_id():
     try:
-        user = g.user
-        if float(user.cash_balance) < float(amount):
-            return jsonify({"error": "Insufficient cash balance."}), 400
-        user.cash_balance = float(user.cash_balance) - float(amount)
-        db.session.commit()
-        return jsonify({
-            "message": "Withdrawal successful.",
-            "cash_balance": float(user.cash_balance)
-        }), 200
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        # Find portfolio for authenticated user
+        portfolio = Portfolio.query.filter_by(user_id=g.user.id).first()
+        if not portfolio:
+            return jsonify({"error": "Portfolio not found"}), 404
+
+        return jsonify({"portfolio_id": portfolio.id}), 200
+
     except Exception as e:
-        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
