@@ -9,18 +9,18 @@ import PurchaseAssetModal from "@/components/PurchaseAssetModal";
 import PortfolioTable from "@/components/PortfolioTable";
 import DoughnutGraph from "@/components/DoughnutGraph";
 
-async function getFirebaseIdToken(): Promise<string> {
+async function getFirebaseIdToken(): Promise<string | null> {
   const auth = getAuth();
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       unsubscribe();
       if (user) {
         const token = await user.getIdToken();
         resolve(token);
       } else {
-        resolve("");
+        resolve(null);
       }
-    }, reject);
+    });
   });
 }
 
@@ -31,21 +31,25 @@ export default function HomePage() {
   const [doughnutRefresh, setDoughnutRefresh] = useState<number>(0);
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
 
-  // Set authenticated user & fetch portfolio ID
+  // Fetch portfolio ID when user logs in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      if (firebaseUser) {
-        await fetchPortfolioId();
+      if (firebaseUser && !portfolioId) {
+        fetchPortfolioId();
       }
     });
-    return () => unsubscribe();
-  }, []);
 
-  // Fetch portfolio ID associated with the user
+    return () => unsubscribe();
+  }, []); // Runs only once when component mounts
+
   const fetchPortfolioId = async () => {
     try {
       const token = await getFirebaseIdToken();
+      if (!token) {
+        console.error("User not authenticated.");
+        return;
+      }
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/id`, {
         headers: {
           "Content-Type": "application/json",
@@ -62,7 +66,7 @@ export default function HomePage() {
     }
   };
 
-  // Method to refresh both Portfolio Table and Doughnut Graph
+  // Refresh Portfolio Table & Doughnut Graph after adding an asset
   const handlePageRefresh = () => {
     setPortfolioRefresh((prev) => prev + 1);
     setDoughnutRefresh((prev) => prev + 1);
@@ -76,28 +80,36 @@ export default function HomePage() {
       </div>
 
       <div className="min-h-screen relative">
-      
         <main className="p-4">
           <PortfolioTable refresh={portfolioRefresh} portfolioId={portfolioId} />
         </main>
+
+        {/* Add Asset Button */}
         <section className="section is-small pt-0">
-          <button
-            className="add-asset-button"
-            onClick={() => setIsAssetModalOpen(true)}
-          >
-            + Add Asset
-          </button>
+        <button
+          className="add-asset-button"
+          onClick={(e) => {
+            e.stopPropagation(); // Prevents event bubbling
+            setIsAssetModalOpen(true);
+          }}
+        >
+          + Add Asset
+        </button>
         </section>
-        
+
         {/* Asset Purchase Modal */}
-        {isAssetModalOpen && (
+        {isAssetModalOpen && portfolioId && (
           <PurchaseAssetModal
-            onClose={() => setIsAssetModalOpen(false)}
+            onClose={() => {
+              console.log("Closing Asset Modal...");
+              setIsAssetModalOpen(false);
+            }}
             onAssetAdded={handlePageRefresh}
             portfolioId={portfolioId}
           />
         )}
       </div>
+
       <style jsx>{`
         .add-asset-button {
           width: 100%;
@@ -123,7 +135,6 @@ export default function HomePage() {
           background-color: #d6d6d6; /* Even darker when clicked */
         }
       `}</style>
-
     </ProtectedRoute>
   );
 }

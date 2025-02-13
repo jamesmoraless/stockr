@@ -8,10 +8,12 @@ import os
 from firebase_admin import credentials, auth
 from finvizfinance.quote import finvizfinance
 from finvizfinance.news import News
+from finvizfinance.screener.ticker import Ticker
 import requests  # if needed for other endpoints
 from finvizfinance.calendar import Calendar  # Add this import at the top
 import pandas as pd
 from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
+import time
 
 
 app = Flask(__name__)
@@ -56,7 +58,7 @@ def authenticate():
                             'get_stock_historical', 'get_crypto_historical', 'get_cash_balance', 
                             'add_portfolio_entry', 'get_portfolio_for_graph','get_portfolio', 'deposit_cash', 
                             'withdraw_cash', 'delete_transaction', 'get_transactions', 'buy_asset', 'sell_asset', 'get_portfolio_id',
-                            'sell_portfolio_asset', 'add_portfolio_asset']:
+                            'sell_portfolio_asset', 'add_portfolio_asset', 'get_stock_market_price', 'search_stocks']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or 'Bearer ' not in auth_header:
             return jsonify({"error": "Unauthorized"}), 401
@@ -109,8 +111,34 @@ def fetch_stock_data(ticker):
         "fundamentals": filtered_fundamentals
     }
 
+@app.route("/api/stocks/<string:query>", methods=["GET"])
+def search_stocks(query):
+    """
+    Search for stock tickers based on user input using Yahoo Finance.
+    """
+    try:
+        yahoo_api_url = f"https://query1.finance.yahoo.com/v6/finance/autocomplete?lang=en&query={query}"
+        headers = {"User-Agent": "Mozilla/5.0"}
 
+        response = requests.get(yahoo_api_url, headers=headers, timeout=5)
+        response.raise_for_status()
 
+        data = response.json()
+
+        # Extract and format search results
+        results = data.get("ResultSet", {}).get("Result", [])
+        stocks = [
+            {"symbol": stock.get("symbol"), "name": stock.get("name")}
+            for stock in results[:5]  # Limit to top 5
+        ]
+
+        if not stocks:
+            return jsonify({"error": "No matching stocks found"}), 404
+
+        return jsonify({"stocks": stocks}), 200
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
 # API Endpoints
 @app.route('/api/calendar', methods=['GET'])
@@ -166,6 +194,34 @@ def get_stock_data(ticker):
         return fundamentals_data, 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def fetch_market_price(ticker):
+    """
+    Fetches the latest market price for a given stock using Finviz.
+    """
+    try:
+        ticker = ticker.upper()
+        stock = finvizfinance(ticker)
+        fundamentals_data = stock.ticker_fundament()
+
+        if not fundamentals_data:
+            return {"ticker": ticker, "market_price": "N/A", "error": "No data found"}
+
+        market_price = fundamentals_data.get("Price", "N/A")  # Get only the price
+
+        return {"ticker": ticker, "market_price": market_price}
+    
+    except Exception as e:
+        print(f"Error fetching market price for {ticker}: {e}")
+        return {"ticker": ticker, "market_price": "N/A", "error": str(e)}
+
+@app.route("/api/stock/current/<string:ticker>", methods=["GET"])
+def get_stock_price(ticker):
+    """
+    API route to fetch the latest market price for a stock.
+    """
+    market_data = fetch_market_price(ticker)
+    return jsonify(market_data), 200
 
 @app.route('/api/watchlist/stocks', methods=['GET'])
 def get_watchlist_stocks():
@@ -232,10 +288,6 @@ def delete_from_watchlist(ticker):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-
-
-
 
 
 # FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ FIVIZZZZZZZ

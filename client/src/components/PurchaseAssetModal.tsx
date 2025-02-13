@@ -1,6 +1,7 @@
-import React, { useState, FC } from "react";
+import React, { useState, FC, useEffect } from "react";
 import { getAuth } from "firebase/auth";
 import { XCircleIcon } from "@heroicons/react/24/outline";
+import SearchBar from "./SearchBar";  // Importing the SearchBar component
 
 interface PurchaseAssetModalProps {
   onClose: () => void;
@@ -27,16 +28,45 @@ const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({ onClose, onAssetAdded
   const [ticker, setTicker] = useState<string>("");
   const [shares, setShares] = useState<string>("");
   const [price, setPrice] = useState<string>("");
+  const [marketPrice, setMarketPrice] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Function to validate ticker input (Only allows A-Z, a-z)
-  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-    if (/^[A-Z]*$/.test(value)) {
-      setTicker(value);
-    }
+  const handleSymbolSelect = (selectedSymbol: string) => {
+    setTicker(selectedSymbol);
   };
+
+  // Fetch market price based on the selected ticker symbol
+  useEffect(() => {
+    if (!ticker.trim()) {
+      setMarketPrice(null);
+      return;
+    }
+
+    const fetchMarketPrice = async () => {
+      try {
+        const token = await getFirebaseIdToken();
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${ticker}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch market price");
+        }
+
+        const data = await response.json();
+        setMarketPrice(data.market_price ? `$${data.market_price}` : "Unavailable");
+      } catch (err) {
+        console.error("Error fetching market price:", err);
+        setMarketPrice("Unavailable");
+      }
+    };
+
+    fetchMarketPrice();
+  }, [ticker]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,12 +137,15 @@ const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({ onClose, onAssetAdded
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Asset Symbol</label>
+            <SearchBar onSymbolSelect={handleSymbolSelect} /> {/* Integrated SearchBar */}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Market Price:</label>
             <input
               type="text"
-              value={ticker}
-              onChange={handleTickerChange}
-              placeholder="e.g., AAPL"
-              maxLength={9}
+              value={marketPrice || "Fetching..."}
+              readOnly
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
