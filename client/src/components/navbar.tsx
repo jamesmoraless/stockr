@@ -56,7 +56,7 @@ export default function Navbar() {
             Watchlist
           </Link>
           <Link href="/transactions" className="text-3xl font-light hover:underline tracking-[-0.08em]">
-            default1
+            Transactions
           </Link>
           <Link href="/statistics" className="text-3xl font-light hover:underline tracking-[-0.08em]">
             default2

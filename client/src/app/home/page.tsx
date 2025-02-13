@@ -7,126 +7,132 @@ import { getAuth } from "firebase/auth";
 import ProtectedRoute from "@/components/protectedroute";
 import PurchaseAssetModal from "@/components/PurchaseAssetModal";
 import PortfolioTable from "@/components/PortfolioTable";
-import CashModal from "@/components/cashmodal";
 import DoughnutGraph from "@/components/DoughnutGraph";
 
-
-async function getFirebaseIdToken(): Promise<string> {
+async function getFirebaseIdToken(): Promise<string | null> {
   const auth = getAuth();
-  return new Promise((resolve, reject) => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      unsubscribe(); // stop listening after the first change
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      unsubscribe();
       if (user) {
         const token = await user.getIdToken();
         resolve(token);
       } else {
-        resolve("");
+        resolve(null);
       }
-    }, reject);
+    });
   });
 }
-
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState<boolean>(false);
-  const [isCashModalOpen, setIsCashModalOpen] = useState<boolean>(false);
   const [portfolioRefresh, setPortfolioRefresh] = useState<number>(0);
-  const [DoughnutRefresh, setDoughnutRefresh] = useState<number>(0);
-  const [cashBalance, setCashBalance] = useState<number>(0);
+  const [doughnutRefresh, setDoughnutRefresh] = useState<number>(0);
+  const [portfolioId, setPortfolioId] = useState<string | null>(null);
 
-  // Set the authenticated user.
+  // Fetch portfolio ID when user logs in
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+      if (firebaseUser && !portfolioId) {
+        fetchPortfolioId();
+      }
     });
+
     return () => unsubscribe();
-  }, []);
+  }, []); // Runs only once when component mounts
 
-  const onAddAssetClick = () => {
-    setIsAssetModalOpen(true);
-  };
-
-  // Function to fetch cash balance from the backend.
-  const fetchCashBalance = async () => {
+  const fetchPortfolioId = async () => {
     try {
       const token = await getFirebaseIdToken();
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cash/balance`, {
+      if (!token) {
+        console.error("User not authenticated.");
+        return;
+      }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/id`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         }
       });
       if (!res.ok) {
-        throw new Error("Failed to fetch cash balance");
+        throw new Error("Failed to fetch portfolio ID");
       }
       const data = await res.json();
-      setCashBalance(data.cash_balance);
+      setPortfolioId(data.portfolio_id);
     } catch (error: any) {
-      console.error("Error fetching cash balance:", error);
+      console.error("Error fetching portfolio ID:", error);
     }
   };
 
-  useEffect(() => {
-    if (!user) return; 
-    fetchCashBalance();
-  }, [user, portfolioRefresh, DoughnutRefresh]);
-  
-  // Called when an asset is added, triggering a refresh.
-  const handleAssetAdded = () => {
+  // Refresh Portfolio Table & Doughnut Graph after adding an asset
+  const handlePageRefresh = () => {
     setPortfolioRefresh((prev) => prev + 1);
     setDoughnutRefresh((prev) => prev + 1);
-
-    fetchCashBalance();
   };
 
   return (
     <ProtectedRoute>
       <div className="chart-section">
         <h2 className="text-xl font-bold text-center mt-8">Portfolio Allocation</h2>
-        <DoughnutGraph 
-          refresh={DoughnutRefresh}
-        />
+        <DoughnutGraph refresh={doughnutRefresh} portfolioId={portfolioId} />
       </div>
+
       <div className="min-h-screen relative">
-        <header className="p-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Portfolio Dashboard</h1>
-          {/* Cash Balance Button */}
-          <button
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-            onClick={() => setIsCashModalOpen(true)}
-          >
-            Cash: ${cashBalance.toFixed(2)}
-          </button>
-        </header>
         <main className="p-4">
-          <PortfolioTable
-            refresh={portfolioRefresh}
-            />
+          <PortfolioTable refresh={portfolioRefresh} portfolioId={portfolioId} />
         </main>
-        {/* Add Asset button at the bottom */}
+
+        {/* Add Asset Button */}
+        <section className="section is-small pt-0">
         <button
-          className="fixed bottom-0 left-0 right-0 bg-blue-600 text-white py-4 text-center"
-          onClick={onAddAssetClick}
+          className="add-asset-button"
+          onClick={(e) => {
+            e.stopPropagation(); // Prevents event bubbling
+            setIsAssetModalOpen(true);
+          }}
         >
           + Add Asset
         </button>
-        {isAssetModalOpen && (
+        </section>
+
+        {/* Asset Purchase Modal */}
+        {isAssetModalOpen && portfolioId && (
           <PurchaseAssetModal
-            onClose={() => setIsAssetModalOpen(false)}
-            onAssetAdded={handleAssetAdded}
-          />
-        )}
-        {isCashModalOpen && (
-          <CashModal
-            onClose={() => setIsCashModalOpen(false)}
-            updateCashBalance={(newBalance: number) => setCashBalance(newBalance)}
+            onClose={() => {
+              console.log("Closing Asset Modal...");
+              setIsAssetModalOpen(false);
+            }}
+            onAssetAdded={handlePageRefresh}
+            portfolioId={portfolioId}
           />
         )}
       </div>
+
       <style jsx>{`
-        button.fixed {
-          z-index: 1001;
+        .add-asset-button {
+          width: 100%;
+          background-color: #f5f5f5; /* Light grey to match table header */
+          color: #333; /* Darker text for contrast */
+          padding: 12px 0;
+          font-size: 1rem;
+          font-weight: bold;
+          border: none;
+          border-radius: 5px;
+          margin-top: 5px;
+          margin-bottom: 5px;
+          text-align: center;
+          cursor: pointer;
+          transition: background 0.2s ease-in-out;
+        }
+
+        .add-asset-button:hover {
+          background-color: #e0e0e0; /* Slightly darker on hover */
+        }
+
+        .add-asset-button:active {
+          background-color: #d6d6d6; /* Even darker when clicked */
         }
       `}</style>
     </ProtectedRoute>
