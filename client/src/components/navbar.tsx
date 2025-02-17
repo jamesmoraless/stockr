@@ -58,8 +58,8 @@ export default function Navbar() {
           <Link href="/transactions" className="text-3xl font-light hover:underline tracking-[-0.08em]">
             default1
           </Link>
-          <Link href="/statistics" className="text-3xl font-light hover:underline tracking-[-0.08em]">
-            default2
+          <Link href="/agent" className="text-3xl font-light hover:underline tracking-[-0.08em]">
+            Agent
           </Link>
                   {/* User dropdown */}
 
