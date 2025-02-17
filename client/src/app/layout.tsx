@@ -57,7 +57,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         {/* Additional head elements if needed */}
       </head>
-      <body>
+      <body className={`overflow-y-hidden`}>
       {/* <body className={`${inter.className} ${inter.variable} overflow-y-hidden`}> */}
         <Navbar />
         <div className="container">{children}</div>

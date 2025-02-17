@@ -17,11 +17,20 @@ export default function TransactionsPage() {
   }, []);
 
   return (
-    <ProtectedRoute>
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-6">Transactions</h1>
-        <TransactionsTable />
-      </div>
-    </ProtectedRoute>
-  );
+      <ProtectedRoute>
+
+        <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
+          {/* Header Section */}
+          <header className="w-full">
+            <h1 className="text-[10rem] tracking-[-0.1em] -ml-4">Transactions.</h1>
+            <div className="flex justify-between items-center">
+              <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl">
+                Transaction History (Last 15 Days)
+              </p>
+            </div>
+          </header>
+          <TransactionsTable/>
+        </div>
+      </ProtectedRoute>
+);
 }

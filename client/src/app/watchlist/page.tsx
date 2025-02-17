@@ -198,7 +198,7 @@ export default function Home() {
           {/* Header Section */}
           <header className="w-full">
             <h1 className="text-[10rem] tracking-[-0.1em] -ml-4">Watchlist.</h1>
-            <div className="flex justify-between items-center mt-4">
+            <div className="flex justify-between items-center">
               <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl">
                 Add stocks to your watchlist to track companies and get their latest metrics
               </p>
