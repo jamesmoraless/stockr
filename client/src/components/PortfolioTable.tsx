@@ -180,7 +180,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
     return <p className="p-4 text-center">No assets in portfolio.</p>;
 
   return (
-    <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+    <div className={`${kaisei.className} w-full`}>
       {/* Add Asset & Refresh Buttons */}
       <div className="mt-4 flex justify-end space-x-2">
 
@@ -203,7 +203,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
       </div>
 
       {/* Scrollable Table Section */}
-      <div className="mt-6 h-[400px] overflow-y-auto">
+      <div className="mt-6 h-[400px] overflow-y-auto tracking-[-0.08em]">
         <table className="min-w-full bg-white">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>

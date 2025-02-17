@@ -78,12 +78,12 @@ export default function HomePage() {
       <div className="min-h-screen flex items-center">
         <div className="flex flex-row gap-4 w-full">
           {/* Left Half - Doughnut Chart (30%) */}
-          <div className="w-[30%] p-4">
+          <div className="w-[23%] p-4">
             <DoughnutGraph refresh={doughnutRefresh} portfolioId={portfolioId} />
           </div>
 
           {/* Right Half - Portfolio Table (70%) */}
-          <div className="w-[70%] relative">
+          <div className="w-[77%] relative">
             <main className="p-4">
               <PortfolioTable
                 refresh={portfolioRefresh}
