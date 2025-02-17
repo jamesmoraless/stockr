@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import { getAuth } from "firebase/auth";
 import ProtectedRoute from "@/components/protectedroute";
 import StockHistoricalChart from "@/components/stockhistoricalchart";
@@ -220,8 +220,7 @@ export default function Home() {
                   className="w-10 h-10 flex items-center justify-center border rounded transition-all"
                 >
                   <span className="relative w-5 h-5 flex items-center justify-center">
-                    <span className="absolute w-[1.5px] h-4 fas fa-times bg-gray-400"></span>
-                    <span className="absolute w-4 h-[1.5px] fas fa-times bg-gray-400"></span>
+             <i className="fas fa-plus text-gray-400"></i>
                   </span>
                 </button>
               </div>

@@ -9,7 +9,29 @@ import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 // Example font class (if using a similar font as before)
 const kaisei = { className: "font-kaisei" };
 
-const COLORS = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"];
+// New grayscale shades from super light gray to black
+const grayShades = [
+  "#F0F0F0",
+  "#E3E3E3",
+  "#D7D7D7",
+  "#CACACA",
+  "#BDBDBD",
+  "#B1B1B1",
+  "#A4A4A4",
+  "#989898",
+  "#8B8B8B",
+  "#7E7E7E",
+  "#727272",
+  "#656565",
+  "#585858",
+  "#4C4C4C",
+  "#3F3F3F",
+  "#333333",
+  "#262626",
+  "#191919",
+  "#0D0D0D",
+  "#000000"
+];
 
 interface PortfolioEntry {
   ticker: string;
@@ -107,13 +129,13 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
     setLoading(false);
   };
 
-  // Calculate portfolio percentage for each asset
+  // Calculate portfolio percentage for each asset and assign a grayscale color
   const calculatePortfolioPercentage = (portfolio: PortfolioEntry[]): PortfolioEntry[] => {
     const totalBookValue = portfolio.reduce((acc, entry) => acc + entry.book_value, 0);
     return portfolio.map((entry, index) => ({
       ...entry,
       portfolio_percentage: totalBookValue > 0 ? (entry.book_value / totalBookValue) * 100 : 0,
-      color: COLORS[index % COLORS.length],
+      color: grayShades[index % grayShades.length],
     }));
   };
 
@@ -160,33 +182,38 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
   return (
     <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
       {/* Add Asset & Refresh Buttons */}
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 flex justify-end space-x-2">
+
         <button
-          onClick={() => setIsAssetModalOpen(true)}
-          className="w-full add-asset-button"
-        >
-          + Add Asset
+            onClick={() => setIsAssetModalOpen(true)}
+            className="w-10 h-10 flex items-center justify-center border rounded transition-all">
+          <span className="relative w-5 h-5 flex items-center justify-center">
+                   <i className="fas fa-plus text-gray-400"></i>
+          </span>
         </button>
+
         <button
-          onClick={fetchMarketPrices}
-          className="w-full bg-gray-200 text-gray-700 py-2 hover:bg-gray-300 transition duration-300"
-        >
-          Refresh Market Values
+            onClick={fetchMarketPrices}
+            className="w-10 h-10 flex items-center justify-center border rounded transition-all">
+                    <span className="relative w-5 h-5 flex items-center justify-center">
+                   <i className="fas fa-rotate-right text-gray-400"></i>
+          </span>
         </button>
+
       </div>
 
       {/* Scrollable Table Section */}
       <div className="mt-6 h-[400px] overflow-y-auto">
         <table className="min-w-full bg-white">
-          <thead className="bg-gray-50 sticky top-0 z-10">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Ticker
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Shares
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+        <thead className="bg-gray-50 sticky top-0 z-10">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Ticker
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Shares
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Avg. Cost
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
@@ -76,45 +78,80 @@ const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh, portfolioId }) =
   if (error) return <p>Error: {error}</p>;
   if (portfolio.length === 0) return <p>No assets in portfolio to display.</p>;
 
-  const sumOfAllAssetValues = portfolio.reduce((total, asset) => total + asset.book_value, 0);
+  const sumOfAllAssetValues = portfolio.reduce(
+    (total, asset) => total + asset.book_value,
+    0
+  );
 
   const data = {
     labels: portfolio.map((asset) => asset.ticker),
     datasets: [
       {
         data: portfolio.map((asset) => asset.book_value),
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"],
+        backgroundColor: [
+          "#F0F0F0",
+          "#E3E3E3",
+          "#D7D7D7",
+          "#CACACA",
+          "#BDBDBD",
+          "#B1B1B1",
+          "#A4A4A4",
+          "#989898",
+          "#8B8B8B",
+          "#7E7E7E",
+          "#727272",
+          "#656565",
+          "#585858",
+          "#4C4C4C",
+          "#3F3F3F",
+          "#333333",
+          "#262626",
+          "#191919",
+          "#0D0D0D",
+          "#000000",
+        ],
         hoverOffset: 10,
       },
     ],
   };
 
-  const options = {
-    plugins: {
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const value = context.raw;
-            const percentage = ((value / sumOfAllAssetValues) * 100).toFixed(2);
-            return `${context.label}: $${value.toLocaleString()} (${percentage}%)`;
-          },
+const options = {
+  maintainAspectRatio: false,
+  cutout: "40%", // Adjusts the thickness of the doughnut
+  layout: {
+    padding: {
+      bottom: 20, // Add 20px of bottom padding
+    },
+  },
+  plugins: {
+    tooltip: {
+      callbacks: {
+        label: (context: any) => {
+          const value = context.raw;
+          const percentage = ((value / sumOfAllAssetValues) * 100).toFixed(2);
+          return `${context.label}: $${value.toLocaleString()} (${percentage}%)`;
         },
       },
-      legend: {
-        display: true,
-        position: "bottom" as const,
+    },
+    legend: {
+      display: true,
+      position: "bottom" as const,
+      labels: {
+        padding: 20, // Extra spacing around each legend item (optional)
       },
     },
-    maintainAspectRatio: false,
-    cutout: "40%", // Adjusts the thickness of the doughnut
-  };
+  },
+};
 
-  return (
+return (
     <div className="doughnut-container">
-      <h2 className="total-value">Total Portfolio Value: ${sumOfAllAssetValues.toLocaleString()}</h2>
+      <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl mb-3">
+        Total Portfolio Value: ${sumOfAllAssetValues.toLocaleString()}
+      </p>
       <div className="doughnut-wrapper">
         <Doughnut data={data} options={options} />
       </div>
+
       <style jsx>{`
         .doughnut-container {
           display: flex;
@@ -122,21 +159,14 @@ const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh, portfolioId }) =
           align-items: center;
           justify-content: center;
           width: 100%;
-          max-width: 500px; /* Increased max width */
+          max-width: 500px;
           margin: auto;
           padding: 20px;
         }
 
-        .total-value {
-          font-size: 24px;
-          font-weight: bold;
-          color: #333;
-          margin-bottom: 10px;
-        }
-
         .doughnut-wrapper {
           width: 100%;
-          height: 300px; /* Increased height */
+          height: 300px;
           display: flex;
           align-items: center;
           justify-content: center;

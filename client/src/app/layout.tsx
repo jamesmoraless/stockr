@@ -2,6 +2,7 @@ import "./globals.css";
 import { ReactNode } from "react";
 import Navbar from "@/components/navbar";
 import Script from "next/script";
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 //import { Kaisei_HarunoUmi } from 'next/font/google';
 import localFont from "next/font/local";
