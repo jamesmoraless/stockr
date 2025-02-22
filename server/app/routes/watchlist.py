@@ -34,7 +34,7 @@ def get_watchlist_stocks():
         tickers = [item.ticker for item in watchlist_items]
         stocks_data = []
         # Reuse the fetch_stock_data function from the stocks blueprint
-        from app.routes.stocks import fetch_stock_data
+        from .stocks import fetch_stock_data
         for ticker in tickers:
             try:
                 stock_data = fetch_stock_data(ticker)

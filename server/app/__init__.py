@@ -28,7 +28,7 @@ def create_app():
     firebase_admin.initialize_app(cred)
 
     # Register blueprints
-    from app.routes import auth, stocks, portfolio, transactions, watchlist, news
+    from .routes import auth, stocks, portfolio, transactions, watchlist, news
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(stocks.bp, url_prefix='/api/stocks')
     app.register_blueprint(portfolio.bp, url_prefix='/api/portfolio')
