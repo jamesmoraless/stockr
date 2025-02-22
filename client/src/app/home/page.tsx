@@ -83,7 +83,7 @@ export default function HomePage() {
           </div>
 
           {/* Right Half - Portfolio Table (70%) */}
-          <div className="w-[77%] relative">
+          <div className="w-[77%] relative -mt-[75px]">
             <main className="p-4">
               <PortfolioTable
                 refresh={portfolioRefresh}

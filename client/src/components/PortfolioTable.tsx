@@ -4,7 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import SellAssetModal from "@/components/SellAssetModal";
 import PurchaseAssetModal from "@/components/PurchaseAssetModal";
+import StockHistoricalChart from "@/components/stockhistoricalchart"; // <-- New chart import
 import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import StockHistoricalChartPersonal from "@/components/stockhistoricalchart_personal";
 
 // Example font class (if using a similar font as before)
 const kaisei = { className: "font-kaisei" };
@@ -30,7 +32,7 @@ const grayShades = [
   "#262626",
   "#191919",
   "#0D0D0D",
-  "#000000"
+  "#000000",
 ];
 
 interface PortfolioEntry {
@@ -72,6 +74,8 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
   const [isSellModalOpen, setIsSellModalOpen] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState<boolean>(false);
+  // New state for controlling the explore chart modal
+  const [selectedAssetForChart, setSelectedAssetForChart] = useState<PortfolioEntry | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch portfolio data
@@ -183,37 +187,37 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
     <div className={`${kaisei.className} w-full`}>
       {/* Add Asset & Refresh Buttons */}
       <div className="mt-4 flex justify-end space-x-2">
-
         <button
-            onClick={() => setIsAssetModalOpen(true)}
-            className="w-10 h-10 flex items-center justify-center border rounded transition-all">
+          onClick={() => setIsAssetModalOpen(true)}
+          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+        >
           <span className="relative w-5 h-5 flex items-center justify-center">
-                   <i className="fas fa-plus text-gray-400"></i>
+            <i className="fas fa-plus text-gray-400"></i>
           </span>
         </button>
 
         <button
-            onClick={fetchMarketPrices}
-            className="w-10 h-10 flex items-center justify-center border rounded transition-all">
-                    <span className="relative w-5 h-5 flex items-center justify-center">
-                   <i className="fas fa-rotate-right text-gray-400"></i>
+          onClick={fetchMarketPrices}
+          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+        >
+          <span className="relative w-5 h-5 flex items-center justify-center">
+            <i className="fas fa-rotate-right text-gray-400"></i>
           </span>
         </button>
-
       </div>
 
       {/* Scrollable Table Section */}
       <div className="mt-6 h-[400px] overflow-y-auto tracking-[-0.08em]">
         <table className="min-w-full bg-white">
-        <thead className="bg-gray-50 sticky top-0 z-10">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Ticker
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Shares
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Ticker
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Shares
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Avg. Cost
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -273,6 +277,10 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
                         </li>
                         <li>
                           <button
+                            onClick={() => {
+                              setSelectedAssetForChart(entry); // Open the chart modal
+                              setDropdownOpen(null);
+                            }}
                             className="block px-4 py-2 text-black tracking-[-0.08em] hover:bg-gray-100 w-full text-left"
                           >
                             Explore
@@ -304,6 +312,19 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ refresh, portfolioId, o
           onAssetAdded={handleAssetAdded}
           portfolioId={portfolioId}
         />
+      )}
+
+      {/* Explore Chart Modal */}
+      {selectedAssetForChart && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="relative p-4">
+            <StockHistoricalChartPersonal
+              symbol={selectedAssetForChart.ticker}
+              name={selectedAssetForChart.ticker} // You can replace this with a proper name if available
+              onClose={() => setSelectedAssetForChart(null)}
+            />
+          </div>
+        </div>
       )}
 
       <style jsx>{`
