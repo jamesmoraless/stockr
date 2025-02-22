@@ -14,7 +14,7 @@ from finvizfinance.screener.ticker import Ticker
 import requests  # if needed for other endpoints
 from finvizfinance.calendar import Calendar  # Add this import at the top
 import pandas as pd
-from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
+from app.models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
 import time
 import json
 
