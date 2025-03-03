@@ -6,6 +6,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import PublicRoute from "@/components/publicroute";
 
+
+
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
