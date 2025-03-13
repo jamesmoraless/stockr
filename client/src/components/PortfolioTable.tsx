@@ -323,8 +323,9 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
       )}
 
       {/* CSV Upload Modal */}
-      {isCsvModalOpen && (
+      {isCsvModalOpen && portfolioId && (
         <InsertCsvModal
+          portfolioId={portfolioId}
           onClose={() => setIsCsvModalOpen(false)}
           onUploadSuccess={() => {
             onAssetAdded(); // Refresh the portfolio

@@ -7,6 +7,7 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 interface InsertCsvModalProps {
   onClose: () => void;
   onUploadSuccess?: () => void;
+  portfolioId: string; // New prop for the specific portfolio ID
 }
 
 async function getFirebaseIdToken(): Promise<string> {
@@ -24,7 +25,7 @@ async function getFirebaseIdToken(): Promise<string> {
   });
 }
 
-const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess }) => {
+const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess, portfolioId }) => {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -50,7 +51,7 @@ const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess }) =
       formData.append("file", file);
       // Note: Do not manually set Content-Type for FormData!
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/transactions/upload-transactions`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}/upload-transactions`,
         {
           method: "POST",
           headers: {
@@ -66,7 +67,7 @@ const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess }) =
       setSuccessMessage("File uploaded successfully.");
       if (onUploadSuccess) onUploadSuccess();
       // Optionally, close the modal automatically:
-      // onClose();
+      onClose();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -77,7 +78,6 @@ const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess }) =
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 shadow-lg w-full max-w-2xl relative">
-
         {/* Modal header */}
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl tracking-[-0.04em]">Upload CSV</h1>

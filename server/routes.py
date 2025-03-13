@@ -6,6 +6,7 @@ import time
 import json
 import requests
 import pandas as pd
+import csv
 
 from flask import jsonify, request, g
 from firebase_admin import auth
@@ -13,6 +14,7 @@ from finvizfinance.quote import finvizfinance
 from finvizfinance.news import News
 from finvizfinance.screener.ticker import Ticker
 from finvizfinance.calendar import Calendar
+from io import StringIO
 
 from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
 from helpers import convert_data, safe_convert
@@ -29,7 +31,8 @@ def register_routes(app):
             'get_stock_historical', 'get_crypto_historical', 'get_cash_balance',
             'add_portfolio_entry', 'get_portfolio_for_graph', 'get_portfolio', 'deposit_cash',
             'withdraw_cash', 'delete_transaction', 'get_transactions', 'buy_asset', 'sell_asset',
-            'get_portfolio_id', 'sell_portfolio_asset', 'add_portfolio_asset', 'get_stock_market_price', 'search_stocks'
+            'get_portfolio_id', 'sell_portfolio_asset', 'add_portfolio_asset', 'get_stock_market_price',
+            'search_stocks', 'upload_transactions'
         ]
         if request.endpoint in protected_endpoints:
             auth_header = request.headers.get('Authorization')
@@ -648,4 +651,78 @@ def register_routes(app):
                 return jsonify({"error": "Portfolio not found"}), 404
             return jsonify({"portfolio_id": portfolio.id}), 200
         except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/portfolio/<string:portfolio_id>/upload-transactions", methods=["POST"])
+    def upload_transactions(portfolio_id):
+        if not hasattr(g, 'user') or g.user is None:
+            return jsonify({"error": "User not authenticated"}), 401
+
+        if "file" not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+
+        try:
+            stream = StringIO(file.read().decode("UTF8"), newline=None)
+            csv_reader = csv.DictReader(stream)
+
+            # Get the portfolio for the authenticated user using the provided portfolio_id.
+            portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
+            if not portfolio:
+                return jsonify({"error": "Portfolio not found or unauthorized"}), 404
+
+            transactions_added = 0
+            errors = []
+            # Track tickers to update portfolio holdings later.
+            tickers_set = set()
+
+            for row in csv_reader:
+                # Expect CSV columns: ticker, shares, price, transaction_type.
+                ticker = row.get("ticker", "").strip().upper()
+                try:
+                    shares = float(row.get("shares", 0))
+                    price = float(row.get("price", 0))
+                except ValueError:
+                    errors.append(f"Invalid numeric values in row: {row}")
+                    continue
+
+                transaction_type = row.get("transaction_type", "buy").strip().lower()
+
+                if not ticker or shares <= 0 or price <= 0:
+                    errors.append(f"Invalid data in row: {row}")
+                    continue
+
+                tickers_set.add(ticker)
+                new_txn = Transaction(
+                    portfolio_id=portfolio.id,
+                    ticker=ticker,
+                    shares=shares,
+                    price=price,
+                    transaction_type=transaction_type
+                )
+                db.session.add(new_txn)
+                transactions_added += 1
+
+            db.session.commit()
+
+            # Recalculate portfolio holdings for each unique ticker.
+            for ticker in tickers_set:
+                recalc_portfolio(portfolio.id, ticker)
+
+            if errors:
+                return (
+                    jsonify({
+                        "message": f"{transactions_added} transactions added with some errors.",
+                        "errors": errors,
+                    }),
+                    207,
+                )
+
+            return jsonify({"message": f"{transactions_added} transactions added successfully."}), 201
+
+        except Exception as e:
+            db.session.rollback()
             return jsonify({"error": str(e)}), 500

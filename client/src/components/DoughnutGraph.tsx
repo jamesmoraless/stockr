@@ -76,80 +76,95 @@ const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh, portfolioId }) =
   if (!portfolioId) return <p>Loading portfolio...</p>;
   if (loading) return <p>Loading chart...</p>;
   if (error) return <p>Error: {error}</p>;
-  if (portfolio.length === 0) return <p>No assets in portfolio to display.</p>;
 
+  // Calculate total portfolio value
   const sumOfAllAssetValues = portfolio.reduce(
     (total, asset) => total + asset.book_value,
     0
   );
 
-  const data = {
-    labels: portfolio.map((asset) => asset.ticker),
-    datasets: [
-      {
-        data: portfolio.map((asset) => asset.book_value),
-        backgroundColor: [
-          "#F0F0F0",
-          "#E3E3E3",
-          "#D7D7D7",
-          "#CACACA",
-          "#BDBDBD",
-          "#B1B1B1",
-          "#A4A4A4",
-          "#989898",
-          "#8B8B8B",
-          "#7E7E7E",
-          "#727272",
-          "#656565",
-          "#585858",
-          "#4C4C4C",
-          "#3F3F3F",
-          "#333333",
-          "#262626",
-          "#191919",
-          "#0D0D0D",
-          "#000000",
-        ],
-        hoverOffset: 10,
-      },
-    ],
-  };
+  // Define chart data. If there are no assets, use an empty dataset.
+  const chartData =
+    portfolio.length > 0
+      ? {
+          labels: portfolio.map((asset) => asset.ticker),
+          datasets: [
+            {
+              data: portfolio.map((asset) => asset.book_value),
+              backgroundColor: [
+                "#F0F0F0",
+                "#E3E3E3",
+                "#D7D7D7",
+                "#CACACA",
+                "#BDBDBD",
+                "#B1B1B1",
+                "#A4A4A4",
+                "#989898",
+                "#8B8B8B",
+                "#7E7E7E",
+                "#727272",
+                "#656565",
+                "#585858",
+                "#4C4C4C",
+                "#3F3F3F",
+                "#333333",
+                "#262626",
+                "#191919",
+                "#0D0D0D",
+                "#000000",
+              ],
+              hoverOffset: 10,
+            },
+          ],
+        }
+      : {
+          labels: [],
+          datasets: [
+            {
+              data: [],
+              backgroundColor: [],
+              hoverOffset: 10,
+            },
+          ],
+        };
 
-const options = {
-  maintainAspectRatio: false,
-  cutout: "40%", // Adjusts the thickness of the doughnut
-  layout: {
-    padding: {
-      bottom: 20, // Add 20px of bottom padding
+  const options = {
+    maintainAspectRatio: false,
+    cutout: "40%", // Adjusts the thickness of the doughnut
+    layout: {
+      padding: {
+        bottom: 20, // 20px bottom padding
+      },
     },
-  },
-  plugins: {
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          const value = context.raw;
-          const percentage = ((value / sumOfAllAssetValues) * 100).toFixed(2);
-          return `${context.label}: $${value.toLocaleString()} (${percentage}%)`;
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: (context: any) => {
+            const value = context.raw;
+            const percentage = sumOfAllAssetValues
+              ? ((value / sumOfAllAssetValues) * 100).toFixed(2)
+              : "0.00";
+            return `${context.label}: $${value.toLocaleString()} (${percentage}%)`;
+          },
+        },
+      },
+      legend: {
+        display: true,
+        position: "bottom" as const,
+        labels: {
+          padding: 20,
         },
       },
     },
-    legend: {
-      display: true,
-      position: "bottom" as const,
-      labels: {
-        padding: 20, // Extra spacing around each legend item (optional)
-      },
-    },
-  },
-};
+  };
 
-return (
+  return (
     <div className="doughnut-container">
       <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl mb-3">
         Total Portfolio Value: ${sumOfAllAssetValues.toLocaleString()}
       </p>
       <div className="doughnut-wrapper">
-        <Doughnut data={data} options={options} />
+        <Doughnut data={chartData} options={options} />
       </div>
 
       <style jsx>{`
