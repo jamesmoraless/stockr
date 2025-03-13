@@ -96,6 +96,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
   const fetchMarketPrices = async () => {
     if (portfolio.length === 0) return;
     setLoading(true);
+    setLoading(false);
     try {
       const updatedPortfolio = await Promise.all(
         portfolio.map(async (entry) => {
@@ -117,7 +118,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
       );
       setPortfolio(updatedPortfolio);
     } catch {
-      // You could optionally set an error here
+      // Optionally set an error here
     } finally {
       setLoading(false);
     }
@@ -202,29 +203,41 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
         </button>
       </div>
 
-      {/* Table or Messages */}
+      {/* Table */}
       <div className="mt-6 h-[400px] overflow-y-auto tracking-[-0.08em]">
-        {loading ? (
-          <p className="p-4 text-center">Loading portfolio...</p>
-        ) : error ? (
-          <p className="text-red-500 p-4">Error: {error}</p>
-        ) : portfolio.length === 0 ? (
-          <p className="p-4 text-center">No assets in portfolio.</p>
-        ) : (
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-50 sticky top-0 z-10">
+        <table className="min-w-full bg-white">
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticker</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shares</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg. Cost</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Book Value</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Market Value</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Portfolio %</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticker</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shares</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg. Cost</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Book Value</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Market Value</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Portfolio %</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <td colSpan={7} className="p-4 text-center">
+                  Loading portfolio...
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y">
-              {portfolio.map((entry, index) => (
+            ) : error ? (
+              <tr>
+                <td colSpan={7} className="p-4 text-center text-red-500">
+                  Error: {error}
+                </td>
+              </tr>
+            ) : portfolio.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-4 text-center">
+                  No assets in portfolio.
+                </td>
+              </tr>
+            ) : (
+              portfolio.map((entry, index) => (
                 <tr key={index} className="border-t border-gray-200">
                   <td className="py-4 px-6">{entry.ticker}</td>
                   <td className="py-4 px-6">{entry.shares}</td>
@@ -283,10 +296,10 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
                     )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Sell Asset Modal */}

@@ -1,7 +1,8 @@
-# app/config.py
+# config.py
 import os
 
 class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     FIREBASE_CREDENTIALS = os.getenv('FIREBASE_CREDENTIALS', 'path/to/default.json')
-    # Add any additional configuration settings here
+    ALPHAVANTAGE_API_KEY = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
