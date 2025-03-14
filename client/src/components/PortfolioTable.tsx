@@ -92,11 +92,10 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
     }
   };
 
-  // Fetch market prices for portfolio assets
+  // Fetch market prices for portfolio assets (triggered manually via refresh button)
   const fetchMarketPrices = async () => {
     if (portfolio.length === 0) return;
     setLoading(true);
-    setLoading(false);
     try {
       const updatedPortfolio = await Promise.all(
         portfolio.map(async (entry) => {
@@ -162,11 +161,8 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
     fetchPortfolio();
   }, [refresh, portfolioId]);
 
-  useEffect(() => {
-    if (portfolio.length > 0) {
-      fetchMarketPrices();
-    }
-  }, [portfolio]);
+  // Remove the useEffect that calls fetchMarketPrices whenever portfolio changes.
+  // Instead, fetch market prices only when the user clicks the refresh button.
 
   return (
     <div className={`${kaisei.className} w-full`}>

@@ -42,6 +42,7 @@ const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess, por
       setError("Please select a file.");
       return;
     }
+    console.log("whats good gucci gang");
     setLoading(true);
     setError("");
     setSuccessMessage("");
@@ -60,6 +61,8 @@ const InsertCsvModal: FC<InsertCsvModalProps> = ({ onClose, onUploadSuccess, por
           body: formData,
         }
       );
+      console.log("2");
+      console.log(response);
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || "Failed to upload file");

@@ -15,9 +15,10 @@ from finvizfinance.news import News
 from finvizfinance.screener.ticker import Ticker
 from finvizfinance.calendar import Calendar
 from io import StringIO
+from datetime import datetime
 
 from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
-from helpers import convert_data, safe_convert
+from helpers import convert_data, safe_convert, parse_csv_with_mapping
 
 def register_routes(app):
 
@@ -655,9 +656,11 @@ def register_routes(app):
 
     @app.route("/api/portfolio/<string:portfolio_id>/upload-transactions", methods=["POST"])
     def upload_transactions(portfolio_id):
+        # Ensure the user is authenticated.
         if not hasattr(g, 'user') or g.user is None:
             return jsonify({"error": "User not authenticated"}), 401
 
+        # Ensure a file was uploaded.
         if "file" not in request.files:
             return jsonify({"error": "No file part in the request"}), 400
 
@@ -666,8 +669,14 @@ def register_routes(app):
             return jsonify({"error": "No selected file"}), 400
 
         try:
-            stream = StringIO(file.read().decode("UTF8"), newline=None)
-            csv_reader = csv.DictReader(stream)
+            # Read file content and create a StringIO stream.
+            content = file.read().decode("UTF8")
+            stream = StringIO(content, newline=None)
+
+            # Parse the CSV using the flexible mapping helper.
+            transactions = parse_csv_with_mapping(stream)
+            if not transactions:
+                return jsonify({"error": "No valid transactions found in the file"}), 400
 
             # Get the portfolio for the authenticated user using the provided portfolio_id.
             portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
@@ -676,41 +685,72 @@ def register_routes(app):
 
             transactions_added = 0
             errors = []
-            # Track tickers to update portfolio holdings later.
             tickers_set = set()
 
-            for row in csv_reader:
-                # Expect CSV columns: ticker, shares, price, transaction_type.
-                ticker = row.get("ticker", "").strip().upper()
+            for transaction in transactions:
+                # Normalize ticker.
+                ticker = transaction.get("ticker", "").strip().upper()
+
                 try:
-                    shares = float(row.get("shares", 0))
-                    price = float(row.get("price", 0))
-                except ValueError:
-                    errors.append(f"Invalid numeric values in row: {row}")
+                    shares = float(transaction.get("shares", 0))
+                    price = float(transaction.get("price", 0))
+                except ValueError as e:
+                    errors.append(f"Invalid numeric values in transaction: {transaction}. Error: {str(e)}")
                     continue
 
-                transaction_type = row.get("transaction_type", "buy").strip().lower()
+                transaction_type = transaction.get("transaction_type", "buy").strip().lower()
+
+                # Process the date if provided. We'll use it to override created_at.
+                transaction_date = transaction.get("date")
+                created_at_val = None
+                if transaction_date:
+                    # If the date is already a date/datetime object, combine with midnight if needed.
+                    if isinstance(transaction_date, datetime):
+                        created_at_val = transaction_date
+                    elif hasattr(transaction_date, "year"):
+                        created_at_val = datetime.combine(transaction_date, datetime.min.time())
+                    else:
+                        # Otherwise, try parsing from string (assumes formats like YYYY-MM-DD).
+                        try:
+                            created_at_val = datetime.strptime(transaction_date, "%Y-%m-%d")
+                        except Exception:
+                            # If parsing fails, leave created_at_val as None (default will be used).
+                            pass
 
                 if not ticker or shares <= 0 or price <= 0:
-                    errors.append(f"Invalid data in row: {row}")
+                    errors.append(f"Invalid data in transaction: {transaction}")
                     continue
 
                 tickers_set.add(ticker)
-                new_txn = Transaction(
-                    portfolio_id=portfolio.id,
-                    ticker=ticker,
-                    shares=shares,
-                    price=price,
-                    transaction_type=transaction_type
-                )
+
+                # Create the transaction record.
+                # If a CSV date is provided, override created_at.
+                if created_at_val is not None:
+                    new_txn = Transaction(
+                        portfolio_id=portfolio.id,
+                        ticker=ticker,
+                        shares=shares,
+                        price=price,
+                        transaction_type=transaction_type,
+                        created_at=created_at_val
+                    )
+                else:
+                    new_txn = Transaction(
+                        portfolio_id=portfolio.id,
+                        ticker=ticker,
+                        shares=shares,
+                        price=price,
+                        transaction_type=transaction_type
+                    )
+
                 db.session.add(new_txn)
                 transactions_added += 1
 
-            db.session.commit()
-
-            # Recalculate portfolio holdings for each unique ticker.
-            for ticker in tickers_set:
-                recalc_portfolio(portfolio.id, ticker)
+            if transactions_added > 0:
+                db.session.commit()
+                # Recalculate portfolio holdings for each unique ticker.
+                for ticker in tickers_set:
+                    recalc_portfolio(portfolio.id, ticker)
 
             if errors:
                 return (
@@ -725,4 +765,5 @@ def register_routes(app):
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"error": str(e)}), 500
+            app.logger.error(f"Error processing CSV file: {str(e)}")
+            return jsonify({"error": f"Error processing file: {str(e)}"}), 500
