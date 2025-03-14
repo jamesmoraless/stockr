@@ -9,6 +9,12 @@ import {
 } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import PublicRoute from "@/components/publicroute";
+import { Kaisei_HarunoUmi } from "next/font/google";
+
+const kaisei = Kaisei_HarunoUmi({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,71 +47,77 @@ export default function LoginPage() {
   };
 
   return (
-      <PublicRoute>
-        <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
+    <PublicRoute>
+      <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
+        {/* Header Section */}
+        <header className="w-full">
           <h1 className="text-[10rem] tracking-[-0.1em] -ml-4">Sign In.</h1>
-          <p className="mt-4 text-2xl tracking-[-0.08em]">
-            Please login to continue to your account
-          </p>
-          <div>
+          <div className="flex justify-between items-center">
+            <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl">
+              Please login to continue to your account
+            </p>
+          </div>
+        </header>
 
-            {error && <div className="text-red-500 text-l mb-4">{error}</div>}
-          <form onSubmit={handleLogin} className="space-y-4">
+        {/* Content Section */}
+        <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+          <div className="mt-6 h-[400px]">
+            {/* Form Section */}
             <div>
-              <label htmlFor="email" className="block text-l font-medium">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-[500px] p-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-l font-medium">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-[500px] p-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2 bg-black text-white rounded-md hover:bg-gray-800 transition"
-            >
-              Sign In
-            </button>
-          </form>
+              {error && <div className="text-red-500 text-l mb-4">{error}</div>}
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label htmlFor="email" className="block text-l font-medium">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-[500px] p-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-white"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-l font-medium">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-[500px] p-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-white"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-[500px] py-2 bg-black text-white rounded-md hover:bg-gray-800 transition"
+                >
+                  Sign In
+                </button>
+              </form>
 
-          <p className="text-l text-gray-600 mt-4">
-            <a href="/forgot-password" className="underline">
-              Forgot password?
-            </a>
-          </p>
+              <p className="text-l text-gray-600 mt-4">
+                <a href="/forgot-password" className="underline">
+                  Forgot password?
+                </a>
+              </p>
 
+              {/* Commented out Google Sign-In button
+              <button
+                onClick={handleGoogleLogin}
+                className="w-[500px] py-2 mt-4 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+              >
+                Sign in with Google
+              </button>
+              */}
+            </div>
           </div>
         </div>
-
-
-        {/*
-under second button           <button
-            onClick={handleGoogleLogin}
-            className="w-full py-2 mt-4 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-          >
-            Sign in with Google
-          </button>
-
-      */}
-
-
-      </PublicRoute>
+      </div>
+    </PublicRoute>
   );
 }
