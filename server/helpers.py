@@ -2,8 +2,15 @@
 import pandas as pd
 import json
 import csv
-from datetime import datetime
 import re
+import openai
+import time
+
+from finvizfinance.quote import finvizfinance
+from finvizfinance.screener.ticker import Ticker
+from finvizfinance.calendar import Calendar
+from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding, UserThread
+from datetime import datetime, timedelta
 
 def convert_data(data):
     """Convert a pandas DataFrame to a dictionary if needed."""
@@ -118,3 +125,153 @@ def parse_csv_with_mapping(stream):
             transactions.append(transaction_data)
 
     return transactions
+
+def fetch_stock_data(ticker):
+    ticker = ticker.upper()
+    stock = finvizfinance(ticker)
+    stock_fundament = convert_data(stock.ticker_fundament())
+    stock_description = convert_data(stock.ticker_description())
+    fundamentals_data = convert_data(stock.ticker_fundament())
+    if isinstance(fundamentals_data, list) and len(fundamentals_data) > 0:
+        fundamentals_data = fundamentals_data[0]
+    filtered_fundamentals = {
+        "current_price": fundamentals_data.get("Price"),
+        "pe_ratio": fundamentals_data.get("P/E"),
+        "52_week_high": fundamentals_data.get("52W High"),
+        "52_week_low": fundamentals_data.get("52W Low"),
+        "lt_debt_equity": fundamentals_data.get("LT Debt/Eq"),
+        "price_fcf": fundamentals_data.get("P/FCF"),
+        "operating_margin": fundamentals_data.get("Oper. Margin"),
+        "beta": fundamentals_data.get("Beta"),
+        "company": fundamentals_data.get("Company"),
+        "change": fundamentals_data.get("Change"),
+        "sector": fundamentals_data.get("Sector"),
+        "avg_volume": fundamentals_data.get("Avg Volume"),
+        "volume": fundamentals_data.get("Volume"),
+        "market_cap": fundamentals_data.get("Market Cap"),
+        "forward_pe": fundamentals_data.get("Forward P/E"),
+        "eps_this_year": fundamentals_data.get("EPS this Y"),
+        "eps_ttm": fundamentals_data.get("EPS (ttm)"),
+        "peg_ratio": fundamentals_data.get("PEG"),
+        "roe": fundamentals_data.get("ROE"),
+        "roa": fundamentals_data.get("ROA"),
+        "profit_margin": fundamentals_data.get("Profit Margin"),
+        "sales": fundamentals_data.get("Sales"),
+        "debt_eq": fundamentals_data.get("Debt/Eq"),
+        "current_ratio": fundamentals_data.get("Current Ratio")
+    }
+    return {
+        "ticker": ticker,
+        "description": stock_description,
+        "fundamentals": filtered_fundamentals
+    }
+
+def fetch_market_price(ticker):
+    try:
+        ticker = ticker.upper()
+        stock = finvizfinance(ticker)
+        fundamentals_data = stock.ticker_fundament()
+        if not fundamentals_data:
+            return {"ticker": ticker, "market_price": "N/A", "error": "No data found"}
+        market_price = fundamentals_data.get("Price", "N/A")
+        return {"ticker": ticker, "market_price": market_price}
+    except Exception as e:
+        print(f"Error fetching market price for {ticker}: {e}")
+        return {"ticker": ticker, "market_price": "N/A", "error": str(e)}
+
+def recalc_portfolio(portfolio_id, ticker):
+    transactions = Transaction.query.filter_by(portfolio_id=portfolio_id, ticker=ticker).all()
+    total_shares = 0
+    total_cost = 0.0
+    for txn in transactions:
+        txn_shares = float(txn.shares)
+        txn_price = float(txn.price)
+        if txn.transaction_type.lower() == 'buy':
+            total_shares += txn_shares
+            total_cost += txn_shares * txn_price
+        elif txn.transaction_type.lower() == 'sell' and total_shares >= txn_shares:
+            avg_cost_per_share = total_cost / total_shares if total_shares > 0 else 0
+            total_shares -= txn_shares
+            total_cost -= txn_shares * avg_cost_per_share
+    new_book_value = max(0, total_cost)
+    new_avg_cost = (new_book_value / total_shares) if total_shares > 0 else 0
+    portfolio_entry = PortfolioHolding.query.filter_by(portfolio_id=portfolio_id, ticker=ticker).first()
+    if portfolio_entry:
+        if total_shares > 0:
+            portfolio_entry.shares = total_shares
+            portfolio_entry.average_cost = new_avg_cost
+            portfolio_entry.book_value = new_book_value
+        else:
+            db.session.delete(portfolio_entry)
+    else:
+        if total_shares > 0:
+            new_portfolio_entry = PortfolioHolding(
+                portfolio_id=portfolio_id,
+                ticker=ticker,
+                shares=total_shares,
+                average_cost=new_avg_cost,
+                book_value=new_book_value
+            )
+            db.session.add(new_portfolio_entry)
+    db.session.commit()
+
+def fetch_stock_sector(ticker):
+    ticker = ticker.upper()
+    try:
+        stock = finvizfinance(ticker)
+        fundamentals_data = stock.ticker_fundament()
+
+        # Check if data exists and sector is present
+        sector = fundamentals_data.get("Sector")
+        if sector is None:
+            sector = "Unknown"
+    except Exception as e:
+        print(f"Error fetching sector for {ticker}: {e}")
+        sector = "Unknown"
+
+    return sector
+
+# Helper function to wait for OpenAI run completion
+def wait_for_run_completion(thread_id, run_id, timeout=60):
+    """Wait for a run to complete, with timeout."""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        run = openai.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
+        if run.status == "completed":
+            return run
+        elif run.status in ["failed", "cancelled", "expired"]:
+            raise Exception(f"Run failed with status: {run.status}")
+
+        # Sleep to avoid excessive API calls
+        time.sleep(1)
+
+    raise Exception("Run timed out")
+
+# Scheduled task to clean up old threads
+def cleanup_old_threads():
+    """
+    Cleanup threads older than 24 hours.
+    This should be run as a scheduled task.
+    """
+    try:
+        # Find threads older than 24 hours
+        one_day_ago = datetime.now() - timedelta(days=1)
+        old_threads = UserThread.query.filter(UserThread.last_used < one_day_ago).all()
+
+        for thread in old_threads:
+            # Delete the thread from OpenAI
+            try:
+                openai.beta.threads.delete(thread_id=thread.thread_id)
+            except Exception as e:
+                print(f"Error deleting OpenAI thread {thread.thread_id}: {str(e)}")
+
+            # Delete the thread from our database
+            db.session.delete(thread)
+
+        db.session.commit()
+        print(f"Cleaned up {len(old_threads)} old chat threads")
+
+    except Exception as e:
+        print(f"Error in cleanup_old_threads: {str(e)}")
+        db.session.rollback()
+

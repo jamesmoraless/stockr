@@ -7,18 +7,20 @@ import json
 import requests
 import pandas as pd
 import csv
+import openai
 
-from flask import jsonify, request, g
+from flask import Flask, jsonify, request, g
 from firebase_admin import auth
 from finvizfinance.quote import finvizfinance
 from finvizfinance.news import News
-from finvizfinance.screener.ticker import Ticker
-from finvizfinance.calendar import Calendar
 from io import StringIO
 from datetime import datetime
 
-from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding
-from helpers import convert_data, safe_convert, parse_csv_with_mapping
+from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding, UserThread
+from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_stock_data, fetch_market_price, recalc_portfolio, fetch_stock_sector, wait_for_run_completion, cleanup_old_threads
+
+openai.api_key = os.getenv("OPENAI_AGENT_API_KEY")
+ASSISTANT_ID = os.getenv("STOCKR_ASSISTANT_ID")
 
 def register_routes(app):
 
@@ -33,7 +35,8 @@ def register_routes(app):
             'add_portfolio_entry', 'get_portfolio_for_graph', 'get_portfolio', 'deposit_cash',
             'withdraw_cash', 'delete_transaction', 'get_transactions', 'buy_asset', 'sell_asset',
             'get_portfolio_id', 'sell_portfolio_asset', 'add_portfolio_asset', 'get_stock_market_price',
-            'search_stocks', 'upload_transactions'
+            'search_stocks', 'upload_transactions', 'get_portfolio_assistant_context', 'start_chat_thread',
+            'continue_chat_thread'
         ]
         if request.endpoint in protected_endpoints:
             auth_header = request.headers.get('Authorization')
@@ -47,97 +50,6 @@ def register_routes(app):
                     return jsonify({"error": "User not found"}), 401
             except Exception as e:
                 return jsonify({"error": str(e)}), 401
-
-    # --- Helper functions used by routes ---
-
-    def fetch_stock_data(ticker):
-        ticker = ticker.upper()
-        stock = finvizfinance(ticker)
-        stock_fundament = convert_data(stock.ticker_fundament())
-        stock_description = convert_data(stock.ticker_description())
-        fundamentals_data = convert_data(stock.ticker_fundament())
-        if isinstance(fundamentals_data, list) and len(fundamentals_data) > 0:
-            fundamentals_data = fundamentals_data[0]
-        filtered_fundamentals = {
-            "current_price": fundamentals_data.get("Price"),
-            "pe_ratio": fundamentals_data.get("P/E"),
-            "52_week_high": fundamentals_data.get("52W High"),
-            "52_week_low": fundamentals_data.get("52W Low"),
-            "lt_debt_equity": fundamentals_data.get("LT Debt/Eq"),
-            "price_fcf": fundamentals_data.get("P/FCF"),
-            "operating_margin": fundamentals_data.get("Oper. Margin"),
-            "beta": fundamentals_data.get("Beta"),
-            "company": fundamentals_data.get("Company"),
-            "change": fundamentals_data.get("Change"),
-            "sector": fundamentals_data.get("Sector"),
-            "avg_volume": fundamentals_data.get("Avg Volume"),
-            "volume": fundamentals_data.get("Volume"),
-            "market_cap": fundamentals_data.get("Market Cap"),
-            "forward_pe": fundamentals_data.get("Forward P/E"),
-            "eps_this_year": fundamentals_data.get("EPS this Y"),
-            "eps_ttm": fundamentals_data.get("EPS (ttm)"),
-            "peg_ratio": fundamentals_data.get("PEG"),
-            "roe": fundamentals_data.get("ROE"),
-            "roa": fundamentals_data.get("ROA"),
-            "profit_margin": fundamentals_data.get("Profit Margin"),
-            "sales": fundamentals_data.get("Sales"),
-            "debt_eq": fundamentals_data.get("Debt/Eq"),
-            "current_ratio": fundamentals_data.get("Current Ratio")
-        }
-        return {
-            "ticker": ticker,
-            "description": stock_description,
-            "fundamentals": filtered_fundamentals
-        }
-
-    def fetch_market_price(ticker):
-        try:
-            ticker = ticker.upper()
-            stock = finvizfinance(ticker)
-            fundamentals_data = stock.ticker_fundament()
-            if not fundamentals_data:
-                return {"ticker": ticker, "market_price": "N/A", "error": "No data found"}
-            market_price = fundamentals_data.get("Price", "N/A")
-            return {"ticker": ticker, "market_price": market_price}
-        except Exception as e:
-            print(f"Error fetching market price for {ticker}: {e}")
-            return {"ticker": ticker, "market_price": "N/A", "error": str(e)}
-
-    def recalc_portfolio(portfolio_id, ticker):
-        transactions = Transaction.query.filter_by(portfolio_id=portfolio_id, ticker=ticker).all()
-        total_shares = 0
-        total_cost = 0.0
-        for txn in transactions:
-            txn_shares = float(txn.shares)
-            txn_price = float(txn.price)
-            if txn.transaction_type.lower() == 'buy':
-                total_shares += txn_shares
-                total_cost += txn_shares * txn_price
-            elif txn.transaction_type.lower() == 'sell' and total_shares >= txn_shares:
-                avg_cost_per_share = total_cost / total_shares if total_shares > 0 else 0
-                total_shares -= txn_shares
-                total_cost -= txn_shares * avg_cost_per_share
-        new_book_value = max(0, total_cost)
-        new_avg_cost = (new_book_value / total_shares) if total_shares > 0 else 0
-        portfolio_entry = PortfolioHolding.query.filter_by(portfolio_id=portfolio_id, ticker=ticker).first()
-        if portfolio_entry:
-            if total_shares > 0:
-                portfolio_entry.shares = total_shares
-                portfolio_entry.average_cost = new_avg_cost
-                portfolio_entry.book_value = new_book_value
-            else:
-                db.session.delete(portfolio_entry)
-        else:
-            if total_shares > 0:
-                new_portfolio_entry = PortfolioHolding(
-                    portfolio_id=portfolio_id,
-                    ticker=ticker,
-                    shares=total_shares,
-                    average_cost=new_avg_cost,
-                    book_value=new_book_value
-                )
-                db.session.add(new_portfolio_entry)
-        db.session.commit()
 
     # --- Route Definitions ---
 
@@ -767,3 +679,178 @@ def register_routes(app):
             db.session.rollback()
             app.logger.error(f"Error processing CSV file: {str(e)}")
             return jsonify({"error": f"Error processing file: {str(e)}"}), 500
+
+    # --- Assistant ---
+
+    @app.route('/api/portfolio/chat', methods=['POST'])
+    def start_chat_thread():
+        try:
+            # Ensure user is authenticated
+            if not hasattr(g, 'user') or g.user is None:
+                return jsonify({"error": "User not authenticated"}), 401
+
+            data = request.get_json()
+            user_question = data.get("question")
+            if not user_question:
+                return jsonify({"error": "Question is required"}), 400
+
+            # Get the user's portfolio (removed is_default filter since Portfolio doesn't have it)
+            portfolio = Portfolio.query.filter_by(user_id=g.user.id).first()
+            if not portfolio:
+                return jsonify({"error": "No portfolio found for this user"}), 404
+
+            # Retrieve portfolio holdings
+            portfolio_entries = PortfolioHolding.query.filter_by(portfolio_id=portfolio.id).all()
+            if not portfolio_entries:
+                # Provide a default message if no holdings exist.
+                portfolio_context = "You currently do not have any portfolio holdings."
+            else:
+                portfolio_context = "Portfolio Holdings:\n"
+                for entry in portfolio_entries:
+                    sector = fetch_stock_sector(entry.ticker) or "Unknown"
+                    total_value = float(entry.shares) * float(entry.average_cost)
+                    portfolio_context += (
+                        f"- {entry.ticker.upper()} ({sector}): "
+                        f"{float(entry.shares):.2f} shares at avg ${float(entry.average_cost):.2f}, "
+                        f"total value ${total_value:.2f}. More info: https://ca.finance.yahoo.com/quote/{entry.ticker.upper()}\n"
+                    )
+
+            # Create a new thread
+            try:
+                thread = openai.beta.threads.create()
+            except Exception as e:
+                app.logger.error(f"Error creating OpenAI thread: {e}")
+                return jsonify({"error": "Failed to create chat thread", "details": str(e)}), 500
+
+            # Send system message with portfolio context
+            try:
+                openai.beta.threads.messages.create(
+                    thread_id=thread.id,
+                    role="user",
+                    content=portfolio_context
+                )
+            except Exception as e:
+                app.logger.error(f"Error sending system message: {e}")
+                return jsonify({"error": "Failed to send system message", "details": str(e)}), 500
+
+            # Send the user's question
+            try:
+                openai.beta.threads.messages.create(
+                    thread_id=thread.id,
+                    role="user",
+                    content=user_question
+                )
+            except Exception as e:
+                app.logger.error(f"Error sending user message: {e}")
+                return jsonify({"error": "Failed to send user message", "details": str(e)}), 500
+
+            # Start the assistant run
+            try:
+                run = openai.beta.threads.runs.create(
+                    thread_id=thread.id,
+                    assistant_id=ASSISTANT_ID,
+                    instructions="Please use the provided portfolio context to generate an insightful and actionable answer."
+                )
+            except Exception as e:
+                app.logger.error(f"Error starting OpenAI run: {e}")
+                return jsonify({"error": "Failed to start chat run", "details": str(e)}), 500
+
+            # Wait for the run to complete
+            try:
+                run = wait_for_run_completion(thread.id, run.id)
+            except Exception as e:
+                app.logger.error(f"Error waiting for run completion: {e}")
+                return jsonify({"error": "Chat run did not complete", "details": str(e)}), 500
+
+            # Retrieve assistant's response
+            try:
+                messages_response = openai.beta.threads.messages.list(thread_id=thread.id)
+                assistant_message = next((msg for msg in messages_response.data if msg.role == "assistant"), None)
+            except Exception as e:
+                app.logger.error(f"Error retrieving assistant message: {e}")
+                return jsonify({"error": "Failed to retrieve assistant message", "details": str(e)}), 500
+
+            if not assistant_message:
+                app.logger.error("No assistant response received from OpenAI")
+                return jsonify({"error": "No response received from assistant"}), 500
+
+            assistant_response = assistant_message.content[0].text.value
+
+            # Store the thread for future messages
+            user_thread = UserThread(
+                user_id=g.user.id,
+                thread_id=thread.id,
+                created_at=datetime.now()
+            )
+            db.session.add(user_thread)
+            db.session.commit()
+
+            return jsonify({
+                "threadId": thread.id,
+                "answer": assistant_response
+            }), 200
+
+        except Exception as e:
+            app.logger.error(f"Error in start_chat_thread: {e}", exc_info=True)
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/portfolio/chat/<string:thread_id>', methods=['POST'])
+    def continue_chat_thread(thread_id):
+        """
+        Continue an existing chat thread with a new message.
+        This endpoint is called for all subsequent messages in a conversation.
+        """
+        try:
+            # Ensure user is authenticated
+            if not hasattr(g, 'user') or g.user is None:
+                return jsonify({"error": "User not authenticated"}), 401
+
+            # Get the user question from the request body
+            data = request.get_json()
+            user_question = data.get("question")
+            if not user_question:
+                return jsonify({"error": "Question is required"}), 400
+
+            # Verify the thread exists and belongs to this user
+            user_thread = UserThread.query.filter_by(user_id=g.user.id, thread_id=thread_id).first()
+            if not user_thread:
+                return jsonify({"error": "Thread not found or unauthorized"}), 404
+
+            # Add the user's question to the thread
+            openai.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=user_question
+            )
+
+            # Run the Assistant
+            run = openai.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id=ASSISTANT_ID
+            )
+
+            # Wait for the run to complete
+            run = wait_for_run_completion(thread_id, run.id)
+
+            # Retrieve the assistant's response
+            messages = openai.beta.threads.messages.list(thread_id=thread_id)
+            # Get the most recent assistant message
+            assistant_message = next((msg for msg in messages.data if msg.role == "assistant"), None)
+
+            if not assistant_message:
+                return jsonify({"error": "No response received from assistant"}), 500
+
+            # Extract the content from the message
+            assistant_response = assistant_message.content[0].text.value
+
+            # Update the thread's last_used timestamp
+            user_thread.last_used = datetime.now()
+            db.session.commit()
+
+            return jsonify({
+                "answer": assistant_response
+            }), 200
+
+        except Exception as e:
+            print(f"Error in continue_chat_thread: {str(e)}")
+            return jsonify({"error": str(e)}), 500

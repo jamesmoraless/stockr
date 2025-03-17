@@ -277,7 +277,9 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
                             </button>
                           </li>
                           <li>
+
                             <button
+                                disabled
                               onClick={() => {
                                 setSelectedAssetForChart(entry);
                                 setDropdownOpen(null);
@@ -286,6 +288,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
                             >
                               Explore
                             </button>
+
                           </li>
                         </ul>
                       </div>
