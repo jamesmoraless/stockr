@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { getAuth } from "firebase/auth";
 import { Line } from "react-chartjs-2";
 import {
@@ -92,7 +92,7 @@ async function getFirebaseIdToken(): Promise<string> {
  *
  * Combines your card design with the chart functionality.
  * It fetches historical price data for the given stock symbol and displays it in a chart.
- * Additionally, it displays the passed fundamentals data.
+ * Additionally, it displays the passed fundamental data.
  */
 export default function StockHistoricalChart({
   symbol,
@@ -299,9 +299,9 @@ export default function StockHistoricalChart({
           </div>
 
           {/* Chart */}
-          <div className="mt-4 w-full h-60">
+          <div className="mt-4 w-full h-60 flex justify-center items-center">
             {loading ? (
-                <div className="flex items-center justify-center h-full tracking-[-0.08em]">Loading stock data...</div>
+                <img src="/spinner.svg" alt="Loading spinner ..." className="mx-auto w-8 h-8"/>
             ) : (
                 <Line data={chartData} options={options}/>
             )}

@@ -146,7 +146,7 @@ const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({
 
         {/* Modal header */}
         <div className="flex justify-between items-start">
-          <h1 className="text-2xl tracking-[-0.04em]">Purchase Asset</h1>
+          <h1 className="text-2xl tracking-[-0.04em]">Input Purchased Asset</h1>
           <button
               onClick={onClose}
               className="w-10 h-10 flex items-center justify-center transition-all -mt-3"

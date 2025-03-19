@@ -220,7 +220,7 @@ export default function Home() {
                   className="w-10 h-10 flex items-center justify-center border rounded transition-all"
                 >
                   <span className="relative w-5 h-5 flex items-center justify-center">
-             <i className="fas fa-plus text-gray-400"></i>
+                    <i className="fas fa-plus text-gray-400"></i>
                   </span>
                 </button>
               </div>
@@ -230,34 +230,38 @@ export default function Home() {
           {/* Controls & Table Section */}
           <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
             <div className="mt-6 h-[400px] overflow-y-auto">
-              {loading ? (
-                <div className="p-4 text-center">Loading watchlist...</div>
-              ) : (
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
+              <table className="min-w-full bg-white">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Symbol
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Price
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Change
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Volume
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Avg. Volume
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {loading ? (
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Symbol
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Change
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Volume
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Avg. Volume
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Action
-                      </th>
+                      <td colSpan={6} className="p-4 text-center">
+                        <img src="/spinner.svg" alt="Loading spinner ..." className="mx-auto w-8 h-8"/>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {filteredWatchlist.length > 0 ? (
+                  ) : (
+                    filteredWatchlist.length > 0 ? (
                       filteredWatchlist.map((item) => (
                         <tr key={item.ticker} className="border-t border-gray-200">
                           <td className="py-4 px-6">{item.ticker}</td>
@@ -327,17 +331,14 @@ export default function Home() {
                       ))
                     ) : (
                       <tr>
-                        <td
-                          colSpan={5}
-                          className={`${kaisei.className} px-6 py-4 tracking-[-0.08em] text-center`}
-                        >
+                        <td colSpan={6} className={`px-6 py-4 tracking-[-0.08em] text-center`}>
                           No stocks in your watchlist.
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+                    )
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

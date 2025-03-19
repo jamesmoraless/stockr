@@ -103,7 +103,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSymbolSelect }) => {
         />
         {isDropdownOpen && results.length > 0 && (
             <div ref={dropdownRef}
-                 className="absolute w-full bg-white border border-gray-300 rounded-md z-10">
+                 className="absolute w-full bg-white border border-gray-300 rounded-md z-10 text-gray-500 tracking-[-0.04em]">
               {results.map((stock, index) => (
                   <button
                       key={index}

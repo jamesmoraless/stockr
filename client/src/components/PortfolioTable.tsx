@@ -214,22 +214,23 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y">
+
             {loading ? (
-              <tr>
-                <td colSpan={7} className="p-4 text-center">
-                  Loading portfolio...
-                </td>
-              </tr>
+                <tr>
+                  <td colSpan={7} className="p-4 text-center">
+                    <img src="/spinner.svg" alt="Loading spinner ..." className="mx-auto w-8 h-8"/>
+                  </td>
+                </tr>
             ) : error ? (
-              <tr>
-                <td colSpan={7} className="p-4 text-center text-red-500">
-                  Error: {error}
+                <tr>
+                  <td colSpan={7} className="p-4 text-center text-red-500">
+                    Error: {error}
                 </td>
               </tr>
             ) : portfolio.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-4 text-center">
-                  No assets in portfolio.
+                <td colSpan={7} className="p-4 text-center tracking-[-0.08em]">
+                  Import your individual stocks or your portfolio.
                 </td>
               </tr>
             ) : (
@@ -252,7 +253,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
                           className="h-2 rounded-full transition-all duration-300"
                           style={{
                             width: `${entry.portfolio_percentage}%`,
-                            backgroundColor: entry.color,
+                            backgroundColor: "#333333",
                           }}
                         ></div>
                       </div>

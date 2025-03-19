@@ -137,7 +137,7 @@ export default function TransactionsPage() {
           </header>
 
           {/* Controls & Table Section */}
-          <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+          <div className={`w-full tracking-[-0.08em]`}>
             <div className="mt-6 h-[400px] overflow-y-auto">
               {loading ? (
                 <div className="p-4 text-center">Loading transactions...</div>
@@ -204,7 +204,7 @@ export default function TransactionsPage() {
                       <tr>
                         <td
                           colSpan={5}
-                          className={`${kaisei.className} px-6 py-4 tracking-[-0.08em] text-center`}
+                          className={`px-6 py-4 tracking-[-0.08em] text-center`}
                         >
                           No transactions found.
                         </td>

@@ -28,6 +28,7 @@ export default function Navbar() {
     e.preventDefault();
     try {
       await signOut(auth);
+      setDropdownOpen(false);
       router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
