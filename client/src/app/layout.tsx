@@ -2,6 +2,7 @@ import "./globals.css";
 import { ReactNode } from "react";
 import Navbar from "@/components/navbar";
 import Script from "next/script";
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 //import { Kaisei_HarunoUmi } from 'next/font/google';
 import localFont from "next/font/local";
@@ -57,7 +58,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         {/* Additional head elements if needed */}
       </head>
-      <body>
+      <body className={`overflow-y-hidden`}>
       {/* <body className={`${inter.className} ${inter.variable} overflow-y-hidden`}> */}
         <Navbar />
         <div className="container">{children}</div>

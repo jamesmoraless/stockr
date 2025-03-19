@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, FC } from "react";
 import { getAuth } from "firebase/auth";
 import { XCircleIcon } from "@heroicons/react/24/outline";
@@ -95,59 +97,53 @@ const SellAssetModal: FC<SellAssetModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
-        {/* Modal Header with Close Icon at Top Right */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Sell Asset</h2>
-          <button onClick={onClose} aria-label="Close modal">
-            <XCircleIcon className="w-6 h-6 text-gray-500 hover:text-red-500" />
+      {/* Use similar styling as AddStock: white background, padding, shadow, and a wide modal */}
+      <div className="bg-white p-6 shadow-lg w-full max-w-2xl">
+        <div className="flex justify-between items-start mb-4">
+          <h1 className="text-2xl tracking-[-0.04em]">Sell {initialTicker}</h1>
+          <button
+              onClick={onClose}
+              className="w-10 h-10 flex items-center justify-center transition-all -mt-3"
+              aria-label="Close modal">
+            <span className="relative w-5 h-5 flex items-center justify-center">
+              <i className="fas fa-times text-gray-400"></i>
+            </span>
           </button>
+
         </div>
 
-        <p className="text-center text-gray-600 mb-4">
-          Selling <strong>{initialTicker}</strong>
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Number of Shares:
-            </label>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-1">
             <input
-              type="number"
-              value={shares}
-              onChange={(e) => setShares(e.target.value)}
-              placeholder="e.g., 10"
-              aria-label="Number of Shares"
-              min="1"
-              max={maxShares}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                type="number"
+                value={shares}
+                onChange={(e) => setShares(e.target.value)}
+                placeholder={`Number of Shares (max: ${maxShares})`}
+                aria-label="Number of Shares"
+                className="w-full p-2 border text-gray-500 tracking-[-0.08em] rounded-md"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Price per Share:
-            </label>
+          <div className="mb-4">
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g., 150"
+              placeholder="Price per Share"
               aria-label="Price per Share"
               step="0.01"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+              className="w-full p-2 border text-gray-500 tracking-[-0.08em] rounded-md"
             />
           </div>
-          {error && <p className="text-center text-red-500 text-sm">{error}</p>}
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-200"
-            >
-              {loading ? "Processing..." : `Sell ${initialTicker}`}
-            </button>
-          </div>
+          {error && (
+            <p className="text-center text-red-500 mb-4 text-sm">{error}</p>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="tracking-[-0.04em] w-full p-2 bg-black text-white rounded-md"
+          >
+            {loading ? "Processing..." : `Sell ${initialTicker}`}
+          </button>
         </form>
       </div>
     </div>

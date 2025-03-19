@@ -93,29 +93,30 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSymbolSelect }) => {
   }, []);
 
   return (
-    <div className="relative w-full max-w-md mx-auto">
-      <input
-        type="text"
-        placeholder="Search for a stock..."
-        className="w-full p-2 border border-gray-300 rounded"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      <div className="relative w-full">
+        <input
+            type="text"
+            placeholder="eg. AAPL"
+            className="w-full p-2 border border-gray-300 rounded-md text-gray-500 tracking-[-0.08em]"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {isDropdownOpen && results.length > 0 && (
+            <div ref={dropdownRef}
+                 className="absolute w-full bg-white border border-gray-300 rounded-md z-10 text-gray-500 tracking-[-0.04em]">
+              {results.map((stock, index) => (
+                  <button
+                      key={index}
+                      onClick={() => handleSelect(stock.symbol)}
+                      className="block w-full text-left p-2 hover:bg-gray-100"
+                  >
+                    {stock.symbol} - {stock.name}
+                  </button>
+              ))}
+            </div>
+        )}
+      </div>
 
-      {isDropdownOpen && results.length > 0 && (
-        <div ref={dropdownRef} className="absolute w-full bg-white border border-gray-300 rounded shadow-md mt-1 z-10">
-          {results.map((stock, index) => (
-            <button
-              key={index}
-              onClick={() => handleSelect(stock.symbol)}
-              className="block w-full text-left p-2 hover:bg-gray-100"
-            >
-              {stock.symbol} - {stock.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 };
 

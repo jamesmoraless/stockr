@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, FC, useEffect } from "react";
 import { getAuth } from "firebase/auth";
 import { XCircleIcon } from "@heroicons/react/24/outline";
@@ -24,7 +26,11 @@ async function getFirebaseIdToken(): Promise<string> {
   });
 }
 
-const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({ onClose, onAssetAdded, portfolioId }) => {
+const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({
+  onClose,
+  onAssetAdded,
+  portfolioId,
+}) => {
   const [ticker, setTicker] = useState<string>("");
   const [shares, setShares] = useState<string>("");
   const [price, setPrice] = useState<string>("");
@@ -46,12 +52,15 @@ const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({ onClose, onAssetAdded
     const fetchMarketPrice = async () => {
       try {
         const token = await getFirebaseIdToken();
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${ticker}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${ticker}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Failed to fetch market price");
@@ -96,19 +105,22 @@ const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({ onClose, onAssetAdded
     setLoading(true);
     try {
       const token = await getFirebaseIdToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}/add-asset`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ticker,
-          shares: numShares,
-          price: numPrice,
-          transaction_type: "buy",
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}/add-asset`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ticker,
+            shares: numShares,
+            price: numPrice,
+            transaction_type: "buy",
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errData = await response.json();
@@ -127,70 +139,92 @@ const PurchaseAssetModal: FC<PurchaseAssetModalProps> = ({ onClose, onAssetAdded
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-          <XCircleIcon className="h-6 w-6" />
-        </button>
+      {/* Modal container styled similarly to AddStock */}
+      <div className="bg-white p-6 shadow-lg w-full max-w-2xl relative">
 
-        <h2 className="text-xl font-semibold text-gray-800 text-center mb-4">Purchase Asset</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Asset Symbol</label>
-            <SearchBar onSymbolSelect={handleSymbolSelect} /> {/* Integrated SearchBar */}
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Market Price:</label>
-            <input
-              type="text"
-              value={marketPrice || "Fetching..."}
-              readOnly
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Number of Shares</label>
-            <input
-              type="number"
-              value={shares}
-              onChange={(e) => setShares(e.target.value)}
-              placeholder="e.g., 100"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Price per Share</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g., 150"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
-          <div className="flex space-x-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300"
-            >
-              {loading ? "Processing..." : "Purchase Asset"}
-            </button>
-            <button
-              type="button"
+        {/* Modal header */}
+        <div className="flex justify-between items-start">
+          <h1 className="text-2xl tracking-[-0.04em]">Input Purchased Asset</h1>
+          <button
               onClick={onClose}
-              className="w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition duration-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+              className="w-10 h-10 flex items-center justify-center transition-all -mt-3"
+              aria-label="Close modal">
+            <span className="relative w-5 h-5 flex items-center justify-center">
+              <i className="fas fa-times text-gray-400"></i>
+            </span>
+          </button>
+        </div>
+
+
+
+        {/* Integrated SearchBar for asset symbol */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Asset Symbol
+          </label>
+          <SearchBar onSymbolSelect={handleSymbolSelect}/>
+        </div>
+
+
+
+        {/* Market Price Field */}
+        <div className="mt-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Market Price:
+          </label>
+          <input
+            type="text"
+            value={marketPrice || ""}
+            readOnly
+            className="w-full p-2 border border-gray-300 rounded-md text-gray-500 tracking-[-0.08em]"
+          />
+        </div>
+
+
+
+        {/* Shares Field */}
+        <div className="mt-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Number of Shares
+          </label>
+          <input
+            type="number"
+            value={shares}
+            onChange={(e) => setShares(e.target.value)}
+            placeholder="eg. 100"
+            className="w-full p-2 border border-gray-300 rounded-md text-gray-500 tracking-[-0.08em]"
+          />
+        </div>
+
+        {/* Price Field */}
+        <div className="mt-1 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Price per Share
+          </label>
+          <input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="eg. 150"
+            className="w-full p-2 border border-gray-300 rounded-md text-gray-500 tracking-[-0.08em]"
+          />
+        </div>
+
+        {error && <p className="text-center text-red-500 text-sm mt-4">{error}</p>}
+
+        {/* Buttons */}
+        <div className="flex space-x-4 mt-6">
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full p-2 bg-black text-white rounded-md tracking-[-0.04em] transition-all hover:bg-black/90"
+          >
+            {loading ? "Processing..." : "Purchase Asset"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -48,5 +48,3 @@ CREATE TABLE IF NOT EXISTS watchlist (
 
 CREATE INDEX idx_portfolio_holdings_ticker ON portfolio_holdings(ticker);
 CREATE INDEX idx_transactions_ticker ON transactions(ticker);
-
-DROP TABLE IF EXISTS transactions, portfolio_holdings, portfolios, watchlist, users CASCADE;
