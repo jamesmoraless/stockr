@@ -7,6 +7,13 @@ import { getAuth } from "firebase/auth";
 import ProtectedRoute from "@/components/protectedroute";
 import PortfolioTable from "@/components/PortfolioTable";
 import DoughnutGraph from "@/components/DoughnutGraph";
+import PortfolioGrowthChart from "@/components/PortfolioGrowthChart";
+import { Kaisei_HarunoUmi } from "next/font/google";
+
+const kaisei = Kaisei_HarunoUmi({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
 
 async function getFirebaseIdToken(): Promise<string | null> {
   const auth = getAuth();
@@ -28,6 +35,7 @@ export default function HomePage() {
   const [portfolioRefresh, setPortfolioRefresh] = useState<number>(0);
   const [doughnutRefresh, setDoughnutRefresh] = useState<number>(0);
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Fetch portfolio ID when user logs in
   useEffect(() => {
@@ -67,31 +75,40 @@ export default function HomePage() {
     }
   };
 
-  // Callback to refresh both portfolio table and doughnut graph after asset addition
+  // Callback to refresh all components after asset addition
   const handlePageRefresh = () => {
     setPortfolioRefresh((prev) => prev + 1);
     setDoughnutRefresh((prev) => prev + 1);
+    setRefreshCounter((prev) => prev + 1);
   };
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen flex items-center">
-        <div className="flex flex-row gap-4 w-full">
-          {/* Left Half - Doughnut Chart (30%) */}
-          <div className="w-[23%] p-4">
-            <DoughnutGraph refresh={doughnutRefresh} portfolioId={portfolioId} />
-          </div>
+      <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
+        <header className="w-full mb-8">
+          {/* Charts Section - 50/50 split with fixed height */}
+          <div className="flex mt-8 gap-8">
+            {/* Left chart - Doughnut Graph */}
+            <div className="w-1/2 h-[300px]">
+              <DoughnutGraph refresh={doughnutRefresh} portfolioId={portfolioId} />
+            </div>
 
-          {/* Right Half - Portfolio Table (70%) */}
-          <div className="w-[77%] relative -mt-[75px]">
-            <main className="p-4">
-              <PortfolioTable
-                refresh={portfolioRefresh}
-                portfolioId={portfolioId}
-                onAssetAdded={handlePageRefresh}
-              />
-            </main>
+            {/* Right chart - Growth Chart with fixed height */}
+            <div className="w-1/2 h-[300px] overflow-hidden">
+              <div className="h-full">
+                <PortfolioGrowthChart refresh={refreshCounter} portfolioId={portfolioId} />
+              </div>
+            </div>
           </div>
+        </header>
+
+        {/* Portfolio Table Section */}
+        <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+          <PortfolioTable
+            refresh={portfolioRefresh}
+            portfolioId={portfolioId}
+            onAssetAdded={handlePageRefresh}
+          />
         </div>
       </div>
     </ProtectedRoute>

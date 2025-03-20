@@ -15,6 +15,8 @@ from finvizfinance.quote import finvizfinance
 from finvizfinance.news import News
 from io import StringIO
 from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding, UserThread
 from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_stock_data, fetch_market_price, recalc_portfolio, fetch_stock_sector, wait_for_run_completion, cleanup_old_threads
@@ -36,7 +38,7 @@ def register_routes(app):
             'withdraw_cash', 'delete_transaction', 'get_transactions', 'buy_asset', 'sell_asset',
             'get_portfolio_id', 'sell_portfolio_asset', 'add_portfolio_asset', 'get_stock_market_price',
             'search_stocks', 'upload_transactions', 'get_portfolio_assistant_context', 'start_chat_thread',
-            'continue_chat_thread'
+            'continue_chat_thread', 'get_portfolio_history'
         ]
         if request.endpoint in protected_endpoints:
             auth_header = request.headers.get('Authorization')
@@ -679,6 +681,124 @@ def register_routes(app):
             db.session.rollback()
             app.logger.error(f"Error processing CSV file: {str(e)}")
             return jsonify({"error": f"Error processing file: {str(e)}"}), 500
+
+    @app.route("/api/portfolio/<string:portfolio_id>/history", methods=["GET"])
+    def get_portfolio_history(portfolio_id):
+        """
+        Calculates the portfolio's value over time based on transaction history.
+        Returns data points for plotting a line chart of portfolio growth.
+        """
+        try:
+            if not hasattr(g, 'user') or g.user is None:
+                return jsonify({"error": "User not authenticated"}), 401
+
+            # Verify the portfolio belongs to the user
+            portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=g.user.id).first()
+            if not portfolio:
+                return jsonify({"error": "Portfolio not found or unauthorized"}), 404
+
+            # Get all transactions sorted by date
+            transactions = Transaction.query.filter_by(portfolio_id=portfolio_id).order_by(Transaction.created_at).all()
+
+            if not transactions:
+                return jsonify({"history": [], "message": "No transactions found"}), 200
+
+            # Compute portfolio value after each transaction
+            portfolio_history = []
+            holdings = {}  # ticker -> {shares, value}
+            total_value = 0
+
+            # Group transactions by date (day)
+            from collections import defaultdict
+            daily_snapshots = defaultdict(list)
+
+            for txn in transactions:
+                txn_date = txn.created_at.date()
+                daily_snapshots[txn_date].append(txn)
+
+            # Process each day's transactions
+            for day, day_txns in sorted(daily_snapshots.items()):
+                day_value = 0
+
+                # Apply all transactions for this day
+                for txn in day_txns:
+                    ticker = txn.ticker
+                    shares = float(txn.shares)
+                    price = float(txn.price)
+                    txn_value = shares * price
+
+                    # Initialize ticker if not present
+                    if ticker not in holdings:
+                        holdings[ticker] = {"shares": 0, "value": 0}
+
+                    # Update holdings based on transaction type
+                    if txn.transaction_type.lower() == 'buy':
+                        holdings[ticker]["shares"] += shares
+                        holdings[ticker]["value"] += txn_value
+                        total_value += txn_value
+                    elif txn.transaction_type.lower() == 'sell':
+                        # Calculate the portion of value to remove
+                        if holdings[ticker]["shares"] > 0:
+                            value_per_share = holdings[ticker]["value"] / holdings[ticker]["shares"]
+                            value_to_remove = shares * value_per_share
+                            holdings[ticker]["shares"] -= shares
+                            holdings[ticker]["value"] -= value_to_remove
+                            total_value -= value_to_remove
+
+                            # Add the profit/loss to the total value
+                            profit_loss = txn_value - value_to_remove
+                            total_value += profit_loss
+
+                # Get market prices for each holding on this day
+                # Note: For historical data, we'd normally use a service with historical prices
+                # For now, we'll use the transaction prices as an approximation
+                for ticker, holding in holdings.items():
+                    if holding["shares"] > 0:
+                        # For each ticker, find the latest transaction price on or before this day
+                        latest_price = None
+                        for t in transactions:
+                            if t.ticker == ticker and t.created_at.date() <= day:
+                                latest_price = float(t.price)
+
+                        if latest_price:
+                            day_value += holding["shares"] * latest_price
+
+                # Add data point for this day
+                portfolio_history.append({
+                    "date": day.isoformat(),
+                    "value": day_value
+                })
+
+            # Fill in any missing days with the previous day's value to create a continuous line
+            if portfolio_history:
+                filled_history = []
+                current_date = datetime.strptime(portfolio_history[0]["date"], "%Y-%m-%d").date()
+                end_date = datetime.strptime(portfolio_history[-1]["date"], "%Y-%m-%d").date()
+                idx = 0
+
+                while current_date <= end_date:
+                    date_str = current_date.isoformat()
+
+                    if idx < len(portfolio_history) and portfolio_history[idx]["date"] == date_str:
+                        filled_history.append(portfolio_history[idx])
+                        idx += 1
+                    else:
+                        # Use the previous day's value
+                        prev_value = filled_history[-1]["value"] if filled_history else 0
+                        filled_history.append({
+                            "date": date_str,
+                            "value": prev_value
+                        })
+
+                    current_date += timedelta(days=1)
+
+                return jsonify({"history": filled_history}), 200
+            else:
+                return jsonify({"history": [], "message": "No portfolio history available"}), 200
+
+        except Exception as e:
+            app.logger.error(f"Error calculating portfolio history: {e}")
+            return jsonify({"error": str(e)}), 500
 
     # --- Assistant ---
 
