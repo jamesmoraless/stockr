@@ -67,30 +67,55 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch portfolio data
-  const fetchPortfolio = async () => {
-    if (!portfolioId) return;
-    setLoading(true);
-    setError("");
-    try {
-      const token = await getFirebaseIdToken();
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+const fetchPortfolio = async () => {
+  if (!portfolioId) return;
+  setLoading(true);
+  setError("");
+  try {
+    const token = await getFirebaseIdToken();
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (!res.ok) throw new Error("Failed to fetch portfolio");
+    const data = await res.json();
+
+    // For each asset, fetch its current market price
+    const portfolioWithMarketValues = await Promise.all(
+      data.portfolio.map(async (entry: PortfolioEntry) => {
+        const token = await getFirebaseIdToken();
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${entry.ticker}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        let marketPrice = null;
+        if (response.ok) {
+          const marketData = await response.json();
+          marketPrice =
+            marketData.market_price !== "N/A" ? marketData.market_price : null;
         }
-      );
-      if (!res.ok) throw new Error("Failed to fetch portfolio");
-      const data = await res.json();
-      setPortfolio(calculatePortfolioPercentage(data.portfolio));
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
+        return { ...entry, market_value: marketPrice };
+      })
+    );
+
+    // Optionally update portfolio percentages based on market value
+    setPortfolio(calculatePortfolioPercentage(portfolioWithMarketValues));
+  } catch (err: any) {
+    setError(err.message || "An error occurred");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fetch market prices for portfolio assets (triggered manually via refresh button)
   const fetchMarketPrices = async () => {
@@ -285,7 +310,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
                                 setSelectedAssetForChart(entry);
                                 setDropdownOpen(null);
                               }}
-                              className="block px-4 py-2 text-black tracking-[-0.08em] hover:bg-gray-100 w-full text-left"
+                              className="block px-4 py-2 text-black tracking-[-0.08em] w-full text-left"
                             >
                               Explore
                             </button>
