@@ -203,35 +203,36 @@ const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh, portfolioId }) =
   }
 
   return (
-    <div className="doughnut-container">
-      <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl mb-3">
-        Total Portfolio Value: ${sumOfAllAssetValues.toLocaleString()}
-      </p>
-      <div className="doughnut-wrapper">
-        <Doughnut data={chartData} options={options} />
-      </div>
+      <div className="doughnut-container">
+        <p className="text-xl tracking-[-0.08em] flex-1 max-w-2xl mb-3">
+          Total Portfolio Value: ${sumOfAllAssetValues.toLocaleString()}
+        </p>
+        <div className="doughnut-wrapper">
+          <Doughnut data={chartData} options={options}/>
+        </div>
 
-      <style jsx>{`
+
+        <style jsx>{`
         .doughnut-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          max-width: 500px;
-          margin: auto;
-          padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 450px;
+        margin: auto;
+        padding: 10px;
         }
-
+        
         .doughnut-wrapper {
-          width: 100%;
-          height: 300px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        width: 100%;
+        height: 250px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         }
-      `}</style>
-    </div>
+        `}</style>
+      </div>
   );
 };
 

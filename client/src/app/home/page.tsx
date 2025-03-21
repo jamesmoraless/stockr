@@ -84,30 +84,25 @@ export default function HomePage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
-        <header className="w-full mb-8">
-          {/* Charts Section - 50/50 split with fixed height */}
-          <div className="flex mt-8 gap-8">
-            {/* Left chart - Doughnut Graph */}
-            <div className="w-1/2 h-[300px]">
-              <DoughnutGraph refresh={doughnutRefresh} portfolioId={portfolioId} />
-            </div>
-
-            {/* Right chart - Growth Chart with fixed height */}
-            <div className="w-1/2 h-[300px] overflow-hidden">
-              <div className="h-full">
-                <PortfolioGrowthChart refresh={refreshCounter} portfolioId={portfolioId} />
-              </div>
-            </div>
+      <div className="flex flex-col items-start pl-20 min-h-screen pt-24">
+        <div className="w-full grid grid-cols-5 mb-4">
+          {/* Left chart - Growth Chart (60%) */}
+          <div className="col-span-3 bg-white overflow-hidden h-[300px]">
+            <PortfolioGrowthChart refresh={refreshCounter} portfolioId={portfolioId}/>
           </div>
-        </header>
+
+          {/* Right chart - Doughnut Graph (40%) */}
+          <div className="col-span-2 bg-white overflow-hidden h-[300px]">
+            <DoughnutGraph refresh={doughnutRefresh} portfolioId={portfolioId}/>
+          </div>
+        </div>
 
         {/* Portfolio Table Section */}
-        <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+        <div className={`${kaisei.className} w-11/12 tracking-[-0.08em] bg-white`}>
           <PortfolioTable
-            refresh={portfolioRefresh}
-            portfolioId={portfolioId}
-            onAssetAdded={handlePageRefresh}
+              refresh={portfolioRefresh}
+              portfolioId={portfolioId}
+              onAssetAdded={handlePageRefresh}
           />
         </div>
       </div>

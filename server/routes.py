@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding, UserThread
-from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_stock_data, fetch_market_price, recalc_portfolio, fetch_stock_sector, wait_for_run_completion, cleanup_old_threads
+from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_stock_data, fetch_market_price, recalc_portfolio, fetch_stock_sector, wait_for_run_completion, cleanup_old_threads, fetch_historical_price, fetch_batch_historical_prices
 
 openai.api_key = os.getenv("OPENAI_AGENT_API_KEY")
 ASSISTANT_ID = os.getenv("STOCKR_ASSISTANT_ID")
@@ -685,7 +685,8 @@ def register_routes(app):
     @app.route("/api/portfolio/<string:portfolio_id>/history", methods=["GET"])
     def get_portfolio_history(portfolio_id):
         """
-        Calculates the portfolio's value over time based on transaction history.
+        Calculates the portfolio's market value over time based on transaction history
+        and historical market prices using helper functions.
         Returns data points for plotting a line chart of portfolio growth.
         """
         try:
@@ -703,101 +704,172 @@ def register_routes(app):
             if not transactions:
                 return jsonify({"history": [], "message": "No transactions found"}), 200
 
-            # Compute portfolio value after each transaction
+            # Find the date of the first transaction to establish our timeline start
+            start_date = transactions[0].created_at.date()
+            end_date = datetime.now().date()  # Use current date as end date
+
+            app.logger.info(f"Calculating portfolio history from {start_date} to {end_date}")
+
+            # Get all unique tickers in the portfolio
+            unique_tickers = set(txn.ticker for txn in transactions)
+
+            app.logger.info(f"Found {len(unique_tickers)} unique tickers: {', '.join(unique_tickers)}")
+
+            # Get current holdings to use for the final data point
+            current_holdings = {}
+            portfolio_entries = PortfolioHolding.query.filter_by(portfolio_id=portfolio_id).all()
+
+            for entry in portfolio_entries:
+                current_holdings[entry.ticker] = float(entry.shares)
+
+            # Fetch real-time current market prices for current holdings
+            current_market_prices = {}
+            for ticker, shares in current_holdings.items():
+                if shares <= 0:  # Skip positions with 0 shares
+                    continue
+
+                try:
+                    market_data = fetch_market_price(ticker)
+                    if market_data and "market_price" in market_data and market_data["market_price"] != "N/A":
+                        try:
+                            current_market_prices[ticker] = float(market_data["market_price"])
+                            app.logger.info(f"Current market price for {ticker}: ${current_market_prices[ticker]}")
+                        except (ValueError, TypeError):
+                            app.logger.warning(f"Invalid market price for {ticker}: {market_data['market_price']}")
+                    else:
+                        app.logger.warning(f"Market price for {ticker} not available")
+                except Exception as e:
+                    app.logger.error(f"Error fetching current market price for {ticker}: {e}")
+
+            # Fetch historical price data for each ticker
+            ticker_historical_prices = {}
+
+            for ticker in unique_tickers:
+                # Use the fetch_batch_historical_prices helper function
+                prices = fetch_batch_historical_prices(
+                    ticker,
+                    start_date.isoformat(),
+                    end_date.isoformat()
+                )
+                ticker_historical_prices[ticker] = prices
+
+                # Ensure we don't hit API rate limits
+                time.sleep(0.5)  # Add a small delay between API calls
+
+            # Create a day-by-day portfolio value calculation
             portfolio_history = []
-            holdings = {}  # ticker -> {shares, value}
-            total_value = 0
 
-            # Group transactions by date (day)
-            from collections import defaultdict
-            daily_snapshots = defaultdict(list)
+            # Sample dates - weekly intervals for past data points
+            sampling_rate = 7  # One data point per week
 
-            for txn in transactions:
-                txn_date = txn.created_at.date()
-                daily_snapshots[txn_date].append(txn)
+            date_range = []
+            current_date = start_date
+            while current_date < end_date:  # Note: we'll handle end_date separately for current prices
+                date_range.append(current_date)
+                current_date += timedelta(days=sampling_rate)
 
-            # Process each day's transactions
-            for day, day_txns in sorted(daily_snapshots.items()):
+            # Process each sampled date
+            for current_date in date_range:
+                date_str = current_date.isoformat()
+
+                # Calculate holdings as of this date
+                holdings = defaultdict(float)  # ticker -> shares
+
+                # Apply all transactions up to and including this date
+                for txn in transactions:
+                    if txn.created_at.date() <= current_date:
+                        ticker = txn.ticker
+                        shares = float(txn.shares)
+
+                        if txn.transaction_type.lower() == 'buy':
+                            holdings[ticker] += shares
+                        elif txn.transaction_type.lower() == 'sell':
+                            holdings[ticker] -= shares
+
+                # Calculate portfolio value for this day using historical market prices
                 day_value = 0
 
-                # Apply all transactions for this day
-                for txn in day_txns:
-                    ticker = txn.ticker
-                    shares = float(txn.shares)
-                    price = float(txn.price)
-                    txn_value = shares * price
+                for ticker, shares in holdings.items():
+                    if shares <= 0:
+                        continue
 
-                    # Initialize ticker if not present
-                    if ticker not in holdings:
-                        holdings[ticker] = {"shares": 0, "value": 0}
+                    # Try to get the market price for this ticker on this date
+                    price = None
 
-                    # Update holdings based on transaction type
-                    if txn.transaction_type.lower() == 'buy':
-                        holdings[ticker]["shares"] += shares
-                        holdings[ticker]["value"] += txn_value
-                        total_value += txn_value
-                    elif txn.transaction_type.lower() == 'sell':
-                        # Calculate the portion of value to remove
-                        if holdings[ticker]["shares"] > 0:
-                            value_per_share = holdings[ticker]["value"] / holdings[ticker]["shares"]
-                            value_to_remove = shares * value_per_share
-                            holdings[ticker]["shares"] -= shares
-                            holdings[ticker]["value"] -= value_to_remove
-                            total_value -= value_to_remove
+                    if date_str in ticker_historical_prices.get(ticker, {}):
+                        # Use price from our already fetched batch
+                        price = ticker_historical_prices[ticker][date_str]
+                    else:
+                        # Fetch individual price if not in batch (as a fallback)
+                        price = fetch_historical_price(ticker, date_str)
 
-                            # Add the profit/loss to the total value
-                            profit_loss = txn_value - value_to_remove
-                            total_value += profit_loss
+                        if price is None:
+                            # If still no price, use the last transaction price for this ticker
+                            for t in reversed(transactions):
+                                if t.ticker == ticker and t.created_at.date() <= current_date:
+                                    price = float(t.price)
+                                    break
 
-                # Get market prices for each holding on this day
-                # Note: For historical data, we'd normally use a service with historical prices
-                # For now, we'll use the transaction prices as an approximation
-                for ticker, holding in holdings.items():
-                    if holding["shares"] > 0:
-                        # For each ticker, find the latest transaction price on or before this day
-                        latest_price = None
-                        for t in transactions:
-                            if t.ticker == ticker and t.created_at.date() <= day:
-                                latest_price = float(t.price)
-
-                        if latest_price:
-                            day_value += holding["shares"] * latest_price
+                    # If a price was found, add to the day's value
+                    if price:
+                        day_value += shares * price
+                    else:
+                        app.logger.warning(f"No price found for {ticker} on {date_str}")
 
                 # Add data point for this day
                 portfolio_history.append({
-                    "date": day.isoformat(),
-                    "value": day_value
+                    "date": date_str,
+                    "value": round(day_value, 2),
+                    "market_value": round(day_value, 2)
                 })
 
-            # Fill in any missing days with the previous day's value to create a continuous line
-            if portfolio_history:
-                filled_history = []
-                current_date = datetime.strptime(portfolio_history[0]["date"], "%Y-%m-%d").date()
-                end_date = datetime.strptime(portfolio_history[-1]["date"], "%Y-%m-%d").date()
-                idx = 0
+            # Add current day using real-time market prices
+            current_day_value = 0
 
-                while current_date <= end_date:
-                    date_str = current_date.isoformat()
+            for ticker, shares in current_holdings.items():
+                if shares <= 0:
+                    continue
 
-                    if idx < len(portfolio_history) and portfolio_history[idx]["date"] == date_str:
-                        filled_history.append(portfolio_history[idx])
-                        idx += 1
+                if ticker in current_market_prices:
+                    # Use real-time market price
+                    price = current_market_prices[ticker]
+                    current_day_value += shares * price
+                else:
+                    # Fallback if real-time price not available
+                    app.logger.warning(f"No current market price available for {ticker}, using fallback")
+
+                    # Try historical prices first
+                    latest_prices = ticker_historical_prices.get(ticker, {})
+                    if latest_prices:
+                        latest_date = max(latest_prices.keys())
+                        price = latest_prices[latest_date]
+                        current_day_value += shares * price
                     else:
-                        # Use the previous day's value
-                        prev_value = filled_history[-1]["value"] if filled_history else 0
-                        filled_history.append({
-                            "date": date_str,
-                            "value": prev_value
-                        })
+                        # Last resort: use transaction price
+                        for t in reversed(transactions):
+                            if t.ticker == ticker:
+                                price = float(t.price)
+                                current_day_value += shares * price
+                                break
 
-                    current_date += timedelta(days=1)
+            # Add current day data point
+            portfolio_history.append({
+                "date": end_date.isoformat(),
+                "value": round(current_day_value, 2),
+                "market_value": round(current_day_value, 2)
+            })
 
-                return jsonify({"history": filled_history}), 200
-            else:
-                return jsonify({"history": [], "message": "No portfolio history available"}), 200
+            app.logger.info(f"Calculated {len(portfolio_history)} portfolio history data points")
+            app.logger.info(f"Final portfolio value: ${round(current_day_value, 2)}")
+
+            return jsonify({
+                "history": portfolio_history,
+                "message": "Portfolio history with current market values",
+                "total_value": round(current_day_value, 2)
+            }), 200
 
         except Exception as e:
-            app.logger.error(f"Error calculating portfolio history: {e}")
+            app.logger.error(f"Error calculating portfolio history: {e}", exc_info=True)
             return jsonify({"error": str(e)}), 500
 
     # --- Assistant ---

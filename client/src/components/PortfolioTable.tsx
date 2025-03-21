@@ -23,6 +23,7 @@ interface PortfolioEntry {
   shares: number;
   average_cost: number;
   book_value: number;
+  market_price?: number | null;
   market_value?: number | null;
   portfolio_percentage: number;
   color?: string;
@@ -99,16 +100,26 @@ const fetchPortfolio = async () => {
           }
         );
         let marketPrice = null;
+        let marketValue = null;
         if (response.ok) {
           const marketData = await response.json();
           marketPrice =
             marketData.market_price !== "N/A" ? marketData.market_price : null;
+
+          // Calculate market value (price * shares)
+          if (marketPrice !== null) {
+            marketValue = marketPrice * entry.shares;
+          }
         }
-        return { ...entry, market_value: marketPrice };
+        return {
+          ...entry,
+          market_price: marketPrice,
+          market_value: marketValue
+        };
       })
     );
 
-    // Optionally update portfolio percentages based on market value
+    // Update portfolio percentages based on market value instead of book value
     setPortfolio(calculatePortfolioPercentage(portfolioWithMarketValues));
   } catch (err: any) {
     setError(err.message || "An error occurred");
@@ -137,10 +148,18 @@ const fetchPortfolio = async () => {
           if (!response.ok) throw new Error("Failed to fetch market price");
           const data = await response.json();
           const price = data.market_price !== "N/A" ? data.market_price : null;
-          return { ...entry, market_value: price };
+          // Calculate market value as price * shares
+          const marketValue = price !== null ? price * entry.shares : null;
+
+          return {
+            ...entry,
+            market_price: price,
+            market_value: marketValue
+          };
         })
       );
-      setPortfolio(updatedPortfolio);
+      // Recalculate portfolio percentages based on the updated market values
+      setPortfolio(calculatePortfolioPercentage(updatedPortfolio));
     } catch {
       // Optionally set an error here
     } finally {
@@ -148,14 +167,33 @@ const fetchPortfolio = async () => {
     }
   };
 
-  // Calculate portfolio percentage for each asset and assign a grayscale color
+  // Calculate portfolio percentage for each asset based on market value and assign a grayscale color
   const calculatePortfolioPercentage = (portfolio: PortfolioEntry[]): PortfolioEntry[] => {
-    const totalBookValue = portfolio.reduce((acc, entry) => acc + entry.book_value, 0);
-    return portfolio.map((entry, index) => ({
-      ...entry,
-      portfolio_percentage: totalBookValue > 0 ? (entry.book_value / totalBookValue) * 100 : 0,
-      color: grayShades[index % grayShades.length],
-    }));
+    // Calculate total market value of all assets with valid market values
+    const totalMarketValue = portfolio.reduce((acc, entry) => {
+      if (entry.market_value != null && !isNaN(Number(entry.market_value))) {
+        return acc + entry.market_value;
+      }
+      return acc;
+    }, 0);
+
+    // If there's no valid market value, fall back to book value
+    const totalValue = totalMarketValue > 0
+      ? totalMarketValue
+      : portfolio.reduce((acc, entry) => acc + entry.book_value, 0);
+
+    return portfolio.map((entry, index) => {
+      // Use market value for percentage calculation if available, otherwise use book value
+      const valueForPercentage = (entry.market_value != null && !isNaN(Number(entry.market_value)))
+        ? entry.market_value
+        : entry.book_value;
+
+      return {
+        ...entry,
+        portfolio_percentage: totalValue > 0 ? (valueForPercentage / totalValue) * 100 : 0,
+        color: grayShades[index % grayShades.length],
+      };
+    });
   };
 
   const openSellModal = (asset: PortfolioEntry) => {
@@ -190,15 +228,15 @@ const fetchPortfolio = async () => {
   // Instead, fetch market prices only when the user clicks the refresh button.
 
   return (
-    <div className={`${kaisei.className} w-full`}>
+    <div className={`w-full`}>
       {/* Top Buttons Always Visible */}
-      <div className="mt-4 flex justify-end space-x-2">
+      <div className="flex justify-end">
         {/* Insert CSV Section */}
         <button
           onClick={() => setIsCsvModalOpen(true)}
-          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+          className="w-6 h-8 flex items-center justify-center transition-all"
         >
-          <span className="relative w-5 h-5 flex items-center justify-center">
+          <span className="relative w-4 h-4 flex items-center justify-center">
             <i className="fa-solid fa-file-csv text-gray-400"></i>
           </span>
         </button>
@@ -206,9 +244,9 @@ const fetchPortfolio = async () => {
         {/* Add Asset Button */}
         <button
           onClick={() => setIsAssetModalOpen(true)}
-          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+          className="w-6 h-8 flex items-center justify-center transition-all"
         >
-          <span className="relative w-5 h-5 flex items-center justify-center">
+          <span className="relative w-4 h-4 flex items-center justify-center">
             <i className="fas fa-plus text-gray-400"></i>
           </span>
         </button>
@@ -216,16 +254,16 @@ const fetchPortfolio = async () => {
         {/* Refresh Market Prices */}
         <button
           onClick={fetchMarketPrices}
-          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+          className="w-6 h-8 flex items-center justify-center transition-all"
         >
-          <span className="relative w-5 h-5 flex items-center justify-center">
+          <span className="relative w-4 h-4 flex items-center justify-center">
             <i className="fas fa-rotate-right text-gray-400"></i>
           </span>
         </button>
       </div>
 
       {/* Table */}
-      <div className="mt-6 h-[400px] overflow-y-auto tracking-[-0.08em]">
+      <div className="mt-1 h-[350px] overflow-y-auto tracking-[-0.08em]">
         <table className="min-w-full bg-white">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
@@ -261,16 +299,16 @@ const fetchPortfolio = async () => {
             ) : (
               portfolio.map((entry, index) => (
                 <tr key={index} className="border-t border-gray-200">
-                  <td className="py-4 px-6">{entry.ticker}</td>
-                  <td className="py-4 px-6">{entry.shares}</td>
-                  <td className="py-4 px-6">${entry.average_cost.toFixed(2)}</td>
-                  <td className="py-4 px-6">${entry.book_value.toFixed(2)}</td>
-                  <td className="py-4 px-6">
+                  <td className="px-4">{entry.ticker}</td>
+                  <td className="px-4">{entry.shares}</td>
+                  <td className="px-4">${entry.average_cost.toFixed(2)}</td>
+                  <td className="px-4">${entry.book_value.toFixed(2)}</td>
+                  <td className="px-4">
                     {entry.market_value != null && !isNaN(Number(entry.market_value))
                       ? `$${Number(entry.market_value).toFixed(2)}`
                       : "N/A"}
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="px-4">
                     <div>
                       <span>{entry.portfolio_percentage.toFixed(2)}%</span>
                       <div className="w-full bg-gray-200 rounded-full h-2">
