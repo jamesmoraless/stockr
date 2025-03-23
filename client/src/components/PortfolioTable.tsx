@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import SellAssetModal from "@/components/SellAssetModal";
 import PurchaseAssetModal from "@/components/PurchaseAssetModal";
@@ -10,29 +10,22 @@ import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 
 const kaisei = { className: "font-kaisei" };
 
-const grayShades = [
-  "#F0F0F0", "#E3E3E3", "#D7D7D7", "#CACACA",
-  "#BDBDBD", "#B1B1B1", "#A4A4A4", "#989898",
-  "#8B8B8B", "#7E7E7E", "#727272", "#656565",
-  "#585858", "#4C4C4C", "#3F3F3F", "#333333",
-  "#262626", "#191919", "#0D0D0D", "#000000",
-];
-
 interface PortfolioEntry {
   ticker: string;
   shares: number;
-  average_cost: number;
   book_value: number;
+  average_cost: number;
   market_price?: number | null;
   market_value?: number | null;
-  portfolio_percentage: number;
+  portfolio_percentage?: number;
   color?: string;
 }
 
 interface PortfolioTableProps {
-  refresh: number;
+  portfolioData: PortfolioEntry[];
   portfolioId: string | null;
   onAssetAdded: () => void;
+  onRefreshMarketPrices: () => void;
 }
 
 async function getFirebaseIdToken(): Promise<string> {
@@ -51,13 +44,11 @@ async function getFirebaseIdToken(): Promise<string> {
 }
 
 const PortfolioTable: React.FC<PortfolioTableProps> = ({
-  refresh,
+  portfolioData,
   portfolioId,
   onAssetAdded,
+  onRefreshMarketPrices
 }) => {
-  const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
   const [selectedAsset, setSelectedAsset] = useState<PortfolioEntry | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
@@ -66,135 +57,6 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
   const [isCsvModalOpen, setIsCsvModalOpen] = useState<boolean>(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Fetch portfolio data
-const fetchPortfolio = async () => {
-  if (!portfolioId) return;
-  setLoading(true);
-  setError("");
-  try {
-    const token = await getFirebaseIdToken();
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    if (!res.ok) throw new Error("Failed to fetch portfolio");
-    const data = await res.json();
-
-    // For each asset, fetch its current market price
-    const portfolioWithMarketValues = await Promise.all(
-      data.portfolio.map(async (entry: PortfolioEntry) => {
-        const token = await getFirebaseIdToken();
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${entry.ticker}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        let marketPrice = null;
-        let marketValue = null;
-        if (response.ok) {
-          const marketData = await response.json();
-          marketPrice =
-            marketData.market_price !== "N/A" ? marketData.market_price : null;
-
-          // Calculate market value (price * shares)
-          if (marketPrice !== null) {
-            marketValue = marketPrice * entry.shares;
-          }
-        }
-        return {
-          ...entry,
-          market_price: marketPrice,
-          market_value: marketValue
-        };
-      })
-    );
-
-    // Update portfolio percentages based on market value instead of book value
-    setPortfolio(calculatePortfolioPercentage(portfolioWithMarketValues));
-  } catch (err: any) {
-    setError(err.message || "An error occurred");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Fetch market prices for portfolio assets (triggered manually via refresh button)
-  const fetchMarketPrices = async () => {
-    if (portfolio.length === 0) return;
-    setLoading(true);
-    try {
-      const updatedPortfolio = await Promise.all(
-        portfolio.map(async (entry) => {
-          const token = await getFirebaseIdToken();
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${entry.ticker}`,
-            {
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          if (!response.ok) throw new Error("Failed to fetch market price");
-          const data = await response.json();
-          const price = data.market_price !== "N/A" ? data.market_price : null;
-          // Calculate market value as price * shares
-          const marketValue = price !== null ? price * entry.shares : null;
-
-          return {
-            ...entry,
-            market_price: price,
-            market_value: marketValue
-          };
-        })
-      );
-      // Recalculate portfolio percentages based on the updated market values
-      setPortfolio(calculatePortfolioPercentage(updatedPortfolio));
-    } catch {
-      // Optionally set an error here
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calculate portfolio percentage for each asset based on market value and assign a grayscale color
-  const calculatePortfolioPercentage = (portfolio: PortfolioEntry[]): PortfolioEntry[] => {
-    // Calculate total market value of all assets with valid market values
-    const totalMarketValue = portfolio.reduce((acc, entry) => {
-      if (entry.market_value != null && !isNaN(Number(entry.market_value))) {
-        return acc + entry.market_value;
-      }
-      return acc;
-    }, 0);
-
-    // If there's no valid market value, fall back to book value
-    const totalValue = totalMarketValue > 0
-      ? totalMarketValue
-      : portfolio.reduce((acc, entry) => acc + entry.book_value, 0);
-
-    return portfolio.map((entry, index) => {
-      // Use market value for percentage calculation if available, otherwise use book value
-      const valueForPercentage = (entry.market_value != null && !isNaN(Number(entry.market_value)))
-        ? entry.market_value
-        : entry.book_value;
-
-      return {
-        ...entry,
-        portfolio_percentage: totalValue > 0 ? (valueForPercentage / totalValue) * 100 : 0,
-        color: grayShades[index % grayShades.length],
-      };
-    });
-  };
 
   const openSellModal = (asset: PortfolioEntry) => {
     setSelectedAsset(asset);
@@ -208,27 +70,24 @@ const fetchPortfolio = async () => {
   };
 
   const handleAssetSold = async () => {
-    await fetchPortfolio();
+    onAssetAdded(); // Refresh all components after selling an asset
     setIsSellModalOpen(false);
   };
 
   // Called after an asset is added via the PurchaseAssetModal
   const handleAssetAdded = async () => {
     setIsAssetModalOpen(false);
-    onAssetAdded(); // Let the parent know so it can refresh other parts (e.g. DoughnutGraph)
-    await fetchPortfolio();
+    onAssetAdded(); // Refresh all components
   };
 
-  useEffect(() => {
-    // Re-fetch the portfolio whenever refresh changes or we get a valid portfolioId
-    fetchPortfolio();
-  }, [refresh, portfolioId]);
-
-  // Remove the useEffect that calls fetchMarketPrices whenever portfolio changes.
-  // Instead, fetch market prices only when the user clicks the refresh button.
+  // Called after CSV upload is successful
+  const handleCsvUploadSuccess = () => {
+    onAssetAdded(); // Refresh all components
+    setIsCsvModalOpen(false);
+  };
 
   return (
-    <div className={`w-full`}>
+    <div className="w-full">
       {/* Top Buttons Always Visible */}
       <div className="flex justify-end">
         {/* Insert CSV Section */}
@@ -253,7 +112,7 @@ const fetchPortfolio = async () => {
 
         {/* Refresh Market Prices */}
         <button
-          onClick={fetchMarketPrices}
+          onClick={onRefreshMarketPrices}
           className="w-6 h-8 flex items-center justify-center transition-all"
         >
           <span className="relative w-4 h-4 flex items-center justify-center">
@@ -277,27 +136,14 @@ const fetchPortfolio = async () => {
             </tr>
           </thead>
           <tbody className="divide-y">
-
-            {loading ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center">
-                    <img src="/spinner.svg" alt="Loading spinner ..." className="mx-auto w-8 h-8"/>
-                  </td>
-                </tr>
-            ) : error ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center text-red-500">
-                    Error: {error}
-                </td>
-              </tr>
-            ) : portfolio.length === 0 ? (
+            {portfolioData.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-4 text-center tracking-[-0.08em]">
                   Import your individual stocks or your portfolio.
                 </td>
               </tr>
             ) : (
-              portfolio.map((entry, index) => (
+              portfolioData.map((entry, index) => (
                 <tr key={index} className="border-t border-gray-200">
                   <td className="px-4">{entry.ticker}</td>
                   <td className="px-4">{entry.shares}</td>
@@ -310,12 +156,12 @@ const fetchPortfolio = async () => {
                   </td>
                   <td className="px-4">
                     <div>
-                      <span>{entry.portfolio_percentage.toFixed(2)}%</span>
+                      <span>{(entry.portfolio_percentage || 0).toFixed(2)}%</span>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="h-2 rounded-full transition-all duration-300"
                           style={{
-                            width: `${entry.portfolio_percentage}%`,
+                            width: `${entry.portfolio_percentage || 0}%`,
                             backgroundColor: "#333333",
                           }}
                         ></div>
@@ -341,9 +187,8 @@ const fetchPortfolio = async () => {
                             </button>
                           </li>
                           <li>
-
                             <button
-                                disabled
+                              disabled
                               onClick={() => {
                                 setSelectedAssetForChart(entry);
                                 setDropdownOpen(null);
@@ -352,7 +197,6 @@ const fetchPortfolio = async () => {
                             >
                               Explore
                             </button>
-
                           </li>
                         </ul>
                       </div>
@@ -390,10 +234,7 @@ const fetchPortfolio = async () => {
         <InsertCsvModal
           portfolioId={portfolioId}
           onClose={() => setIsCsvModalOpen(false)}
-          onUploadSuccess={() => {
-            onAssetAdded(); // Refresh the portfolio
-            setIsCsvModalOpen(false);
-          }}
+          onUploadSuccess={handleCsvUploadSuccess}
         />
       )}
 
