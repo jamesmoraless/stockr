@@ -47,7 +47,7 @@ with app.app_context():
     # Create models that don't exist yet
     for table in db.metadata.tables.values():
         if table.name not in existing_tables:
-            table.create(db.engine)
+            table.create(db.engine, checkfirst=True)
         else:
             print(f"Table {table.name} already exists")
 
