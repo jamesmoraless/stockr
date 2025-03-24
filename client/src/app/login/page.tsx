@@ -22,8 +22,6 @@ export default function LoginPage() {
     try {
       const userCredentials = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUid = userCredentials.user.uid;
-      console.log("User authenticated:", userCredentials);
-      console.log("Firebase UID:", firebaseUid);
     } catch (err: any) {
       setError(err.message);
     }

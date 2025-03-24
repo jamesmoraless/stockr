@@ -22,10 +22,13 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    env_file: .env  # This is the critical addition
+    env_file: .env
     environment:
-      POSTGRES_HOST: postgres  # Explicitly set Docker service name
+      POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/firebase.json
+    volumes:
+      - ./server/stockr-cb868-firebase-adminsdk-fbsvc-3345839651.json:/secrets/firebase.json:ro
     ports:
       - "5001:5000"
     depends_on:

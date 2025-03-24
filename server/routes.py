@@ -23,6 +23,7 @@ from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_st
 
 openai.api_key = os.getenv("OPENAI_AGENT_API_KEY")
 ASSISTANT_ID = os.getenv("STOCKR_ASSISTANT_ID")
+ALPHA_ID = os.getenv("STOCKR_ALPHA_ID")
 
 def register_routes(app):
 
@@ -152,9 +153,8 @@ def register_routes(app):
 
     @app.route("/api/stock/historical/<string:symbol>", methods=["GET"])
     def get_stock_historical(symbol):
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
         symbol = symbol.upper()
-        url = f'https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY_ADJUSTED&symbol={symbol}&outputsize=full&apikey={api_key}'
+        url = f'https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY_ADJUSTED&symbol={symbol}&outputsize=full&apikey={ALPHA_ID}'
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -173,9 +173,8 @@ def register_routes(app):
 
     @app.route("/api/crypto/historical/<string:symbol>", methods=["GET"])
     def get_crypto_historical(symbol):
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
         symbol = symbol.upper()
-        url = f'https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol={symbol}&market=USD&apikey={api_key}'
+        url = f'https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol={symbol}&market=USD&apikey={ALPHA_ID}'
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -211,8 +210,7 @@ def register_routes(app):
     @app.route("/api/ticker-search", methods=["GET"])
     def get_ticker():
         keyword = request.args.get('keywords', 'Microsoft')
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
-        url = f'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={keyword}&apikey={api_key}'
+        url = f'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={keyword}&apikey={ALPHA_ID}'
         r = requests.get(url)
         if r.status_code != 200:
             return jsonify({"error": "Failed to fetch data from Alpha Vantage"}), 500
@@ -225,11 +223,10 @@ def register_routes(app):
         if not tickers:
             return jsonify({"error": "The 'tickers' query parameter is required."}), 400
         topics = request.args.get('topics')
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
         url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={tickers}'
         if topics:
             url += f'&topics={topics}'
-        url += f'&apikey={api_key}'
+        url += f'&apikey={ALPHA_ID}'
         print(url)
         try:
             response = requests.get(url)
@@ -244,8 +241,7 @@ def register_routes(app):
         symbol = request.args.get('symbol')
         if not symbol:
             return jsonify({"error": "The 'symbol' query parameter is required."}), 400
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
-        url = f'https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={symbol}&apikey={api_key}'
+        url = f'https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={symbol}&apikey={ALPHA_ID}'
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -259,8 +255,7 @@ def register_routes(app):
         symbol = request.args.get('symbol')
         if not symbol:
             return jsonify({"error": "The 'symbol' query parameter is required."}), 400
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
-        url = f'https://www.alphavantage.co/query?function=BALANCE_SHEET&symbol={symbol}&apikey={api_key}'
+        url = f'https://www.alphavantage.co/query?function=BALANCE_SHEET&symbol={symbol}&apikey={ALPHA_ID}'
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -274,8 +269,7 @@ def register_routes(app):
         symbol = request.args.get('symbol')
         if not symbol:
             return jsonify({"error": "The 'symbol' query parameter is required."}), 400
-        api_key = os.getenv('ALPHAVANTAGE_API_KEY', 'IH7UCOABIKN6Y6KH')
-        url = f'https://www.alphavantage.co/query?function=CASH_FLOW&symbol={symbol}&apikey={api_key}'
+        url = f'https://www.alphavantage.co/query?function=CASH_FLOW&symbol={symbol}&apikey={ALPHA_ID}'
         try:
             response = requests.get(url)
             response.raise_for_status()

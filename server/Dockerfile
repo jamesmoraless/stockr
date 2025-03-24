@@ -16,9 +16,8 @@ COPY server/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy all server files and the Firebase credentials
+# Copy server code (excluding the Firebase credentials)
 COPY server/ .
-COPY server/stockr-cb868-firebase-adminsdk-fbsvc-3345839651.json .
 
 COPY server/wait-for-postgres.sh /wait-for-postgres.sh
 RUN chmod +x /wait-for-postgres.sh
