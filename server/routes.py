@@ -1008,6 +1008,34 @@ def register_routes(app):
             if not user_thread:
                 return jsonify({"error": "Thread not found or unauthorized"}), 404
 
+            # Check if any portfolio holdings have been updated since thread creation
+            portfolio = Portfolio.query.filter_by(user_id=g.user.id).first()
+            if portfolio:
+                # Find the most recently updated holding
+                latest_holding_update = db.session.query(db.func.max(PortfolioHolding.updated_at)) \
+                    .filter(PortfolioHolding.portfolio_id == portfolio.id).scalar()
+
+                # Check for new transactions since thread creation
+                latest_transaction = db.session.query(db.func.max(Transaction.created_at)) \
+                    .filter(Transaction.portfolio_id == portfolio.id).scalar()
+
+                # If holdings were updated or new transactions added after thread creation
+                if (latest_holding_update and latest_holding_update > user_thread.created_at) or \
+                        (latest_transaction and latest_transaction > user_thread.created_at):
+
+                    # Delete old thread from OpenAI
+                    try:
+                        openai.beta.threads.delete(thread_id=thread_id)
+                    except Exception as e:
+                        app.logger.error(f"Error deleting outdated thread: {e}")
+
+                    # Delete from database
+                    db.session.delete(user_thread)
+                    db.session.commit()
+
+                    # Create a new thread with updated portfolio context
+                    return start_chat_thread()
+
             # Add the user's question to the thread
             openai.beta.threads.messages.create(
                 thread_id=thread_id,
@@ -1018,7 +1046,8 @@ def register_routes(app):
             # Run the Assistant
             run = openai.beta.threads.runs.create(
                 thread_id=thread_id,
-                assistant_id=ASSISTANT_ID
+                assistant_id=ASSISTANT_ID,
+                instructions="Please use the provided portfolio context to generate an insightful and actionable answer."
             )
 
             # Wait for the run to complete

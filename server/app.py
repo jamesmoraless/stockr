@@ -6,6 +6,7 @@ from models import db
 import firebase_admin
 from firebase_admin import credentials
 from routes import register_routes
+from sqlalchemy import inspect
 import os
 
 def create_app():
@@ -39,7 +40,16 @@ def create_app():
 app = create_app()
 
 with app.app_context():
-    db.create_all()
+    # Check if tables exist before trying to create them
+    inspector = inspect(db.engine)
+    existing_tables = inspector.get_table_names()
+
+    # Create models that don't exist yet
+    for table in db.metadata.tables.values():
+        if table.name not in existing_tables:
+            table.create(db.engine)
+        else:
+            print(f"Table {table.name} already exists")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

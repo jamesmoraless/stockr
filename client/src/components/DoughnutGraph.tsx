@@ -30,11 +30,84 @@ const DoughnutGraph: React.FC<DoughnutGraphProps> = ({
   const sumOfAllAssetValues = totalValue ||
     portfolioData.reduce((total, asset) => total + Number(asset.market_value || 0), 0);
 
-  // Don't render the chart if there's no data
   if (portfolioData.length === 0 || sumOfAllAssetValues <= 0) {
+    // Create empty chart data with placeholder segments
+    const emptyChartData = {
+      labels: ['No Data'],
+      datasets: [
+        {
+          data: [1],
+          backgroundColor: ['#e5e5e5'],
+          borderColor: ['#f5f5f5'],
+          borderWidth: 1,
+          hoverOffset: 0,
+        },
+      ],
+    };
+
+    // Create empty chart options with proper TypeScript typing
+    const emptyOptions = {
+      maintainAspectRatio: false,
+      cutout: "40%" as const,
+      layout: {
+        padding: {
+          bottom: 20,
+        },
+      },
+      plugins: {
+        tooltip: {
+          enabled: false
+        },
+        legend: {
+          // Display an empty legend to match the spacing of the data view
+          display: true,
+          position: "bottom" as const,
+          labels: {
+            padding: 20,
+            color: "#e5e5e5", // Light gray to make it less prominent
+            // Use a very small font to minimize space while maintaining structure
+            font: {
+              size: 0
+            },
+            boxWidth: 0,
+          },
+        },
+      },
+      // Disable all hover/click interactions
+      hover: {
+        mode: null as any
+      },
+    };
+
     return (
       <div className="doughnut-container">
-        <p className="text-center">No portfolio data available to display.</p>
+        <p className="text-xl tracking-[-0.08em] flex-1 max-w-2xl mb-3 text-gray-400">
+          Total Portfolio Value: $0
+        </p>
+        <div className="doughnut-wrapper relative">
+          <Doughnut data={emptyChartData} options={emptyOptions} />
+        </div>
+
+        <style jsx>{`
+        .doughnut-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          max-width: 450px;
+          margin: auto;
+          padding: 10px;
+        }
+        
+        .doughnut-wrapper {
+          width: 90%;
+          height: 250px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        `}</style>
       </div>
     );
   }

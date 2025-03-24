@@ -8,8 +8,6 @@ import StockHistoricalChartPersonal from "@/components/stockhistoricalchart_pers
 import InsertCsvModal from "@/components/InsertCsvModal";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 
-const kaisei = { className: "font-kaisei" };
-
 interface PortfolioEntry {
   ticker: string;
   shares: number;

@@ -4,12 +4,6 @@ import React, { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import ProtectedRoute from "@/components/protectedroute";
-import { Kaisei_HarunoUmi } from "next/font/google";
-
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
 
 interface Transaction {
   id: string;

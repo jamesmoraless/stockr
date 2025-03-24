@@ -8,12 +8,6 @@ import ProtectedRoute from "@/components/protectedroute";
 import PortfolioTable from "@/components/PortfolioTable";
 import DoughnutGraph from "@/components/DoughnutGraph";
 import PortfolioGrowthChart from "@/components/PortfolioGrowthChart";
-import { Kaisei_HarunoUmi } from "next/font/google";
-
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
 
 // Define interfaces for data structures
 interface PortfolioEntry {
@@ -391,7 +385,7 @@ export default function HomePage() {
         </div>
 
         {/* Portfolio Table Section */}
-        <div className={`${kaisei.className} w-11/12 tracking-[-0.08em] bg-white`}>
+        <div className={`w-11/12 tracking-[-0.08em] bg-white`}>
           <PortfolioTable
             portfolioData={portfolioData}
             portfolioId={portfolioId}

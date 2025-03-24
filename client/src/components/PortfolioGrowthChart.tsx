@@ -41,13 +41,106 @@ const PortfolioGrowthChart: React.FC<PortfolioGrowthProps> = ({
   historyData,
   totalValue
 }) => {
-  // Don't render the chart if there's no data
   if (historyData.length === 0) {
+    // Create default empty chart data
+    const emptyChartData = {
+      labels: Array.from({ length: 6 }, (_, i) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - 5 + i);
+        return date.toISOString();
+      }),
+      datasets: [
+        {
+          label: "Portfolio Market Value",
+          data: Array(6).fill(null),
+          fill: false,
+          borderColor: "#e5e5e5",
+          backgroundColor: "#e5e5e5",
+          borderDash: [5, 5],
+          tension: 0.1,
+          pointRadius: 0,
+        },
+      ],
+    };
+
+    // Create empty chart options with proper TypeScript typing
+    const emptyOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'time' as const,
+          time: {
+            unit: 'month' as const,
+            displayFormats: {
+              month: 'MMM yyyy'
+            }
+          },
+          ticks: {
+            color: '#e5e5e5'
+          },
+          grid: {
+            color: '#f5f5f5'
+          }
+        },
+        y: {
+          ticks: {
+            color: '#e5e5e5'
+          },
+          grid: {
+            color: '#f5f5f5'
+          }
+        },
+      },
+      plugins: {
+        tooltip: {
+          enabled: false
+        },
+        legend: {
+          display: false,
+        },
+      },
+    };
+
     return (
       <div className="portfolio-growth-container">
-        <p className="text-center">
-          No portfolio history available. Add transactions to see your growth over time.
-        </p>
+        <div className="summary-section">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl tracking-[-0.08em]">Portfolio Growth</h2>
+            <p className="text-lg text-gray-400">0.00%</p>
+          </div>
+          <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
+            <p>Initial: $0</p>
+            <p>Current: $0</p>
+          </div>
+        </div>
+
+        <div className="chart-wrapper relative">
+          <Line data={emptyChartData} options={emptyOptions} />
+        </div>
+
+        <style jsx>{`
+        .portfolio-growth-container {
+          width: 100%;
+          height: 100%;
+          padding: 5px;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .chart-wrapper {
+          flex: 1;
+          width: 100%;
+          min-height: 200px;
+          margin-top: 5px;
+        }
+        
+        .summary-section {
+          background-color: #f9f9f9;
+          padding: 8px;
+          border: 1px solid #e5e5e5;
+        }
+        `}</style>
       </div>
     );
   }
@@ -166,7 +259,6 @@ const PortfolioGrowthChart: React.FC<PortfolioGrowthProps> = ({
       width: 100%; 
       height: 100%;  /* This will expand to parent container's height */
       padding: 5px;
-      font-family: 'kaisei', sans-serif;
       display: flex;
       flex-direction: column;
       }
