@@ -73,7 +73,6 @@ export default function Home() {
     const fetchWatchlist = async () => {
       try {
         const token = await getFirebaseIdToken();
-        console.log("Fetched token:", token);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/watchlist/stocks`,
           {
@@ -89,7 +88,6 @@ export default function Home() {
         }
         const data = await response.json();
         setWatchlist(data);
-        console.log(data);
       } catch (error) {
         console.error("Error fetching watchlist:", error);
       } finally {
@@ -118,7 +116,6 @@ export default function Home() {
     }
     try {
       const token = await getFirebaseIdToken();
-      console.log("Adding ticker with token:", token);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/watchlist`,
         {

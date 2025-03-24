@@ -58,10 +58,6 @@ export default function CryptoHistoricalChart({ symbol }: CryptoHistoricalChartP
     async function fetchHistoricalData() {
       try {
         const token = await getFirebaseIdToken();
-
-         console.log('hereherehreh1')
-
-         console.log('token')
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/crypto/historical/${symbol}`,
           {
@@ -72,8 +68,6 @@ export default function CryptoHistoricalChart({ symbol }: CryptoHistoricalChartP
           }
         );
 
-        console.log(res);
-        console.log('hereherehreh2')
         if (!res.ok) {
           throw new Error("Failed to fetch crypto historical data");
         }
