@@ -9,12 +9,6 @@ import {
 } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import PublicRoute from "@/components/publicroute";
-import { Kaisei_HarunoUmi } from "next/font/google";
-
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,8 +22,6 @@ export default function LoginPage() {
     try {
       const userCredentials = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUid = userCredentials.user.uid;
-      console.log("User authenticated:", userCredentials);
-      console.log("Firebase UID:", firebaseUid);
     } catch (err: any) {
       setError(err.message);
     }
@@ -60,7 +52,7 @@ export default function LoginPage() {
         </header>
 
         {/* Content Section */}
-        <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+        <div className={`w-full tracking-[-0.08em]`}>
           <div className="mt-6 h-[400px]">
             {/* Form Section */}
             <div>

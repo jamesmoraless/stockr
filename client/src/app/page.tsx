@@ -1,12 +1,5 @@
 "use client";
 
-import { Kaisei_HarunoUmi } from "next/font/google";
-
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
-
 export default function Home() {
   return (
     <div className="flex flex-col items-start justify-center pl-20 min-h-screen">
@@ -21,7 +14,7 @@ export default function Home() {
       </header>
 
       {/* Content Section - Adding this structure to match transactions and agent */}
-      <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+      <div className={`w-full tracking-[-0.08em]`}>
         <div className="mt-6 h-[400px] overflow-y-auto">
           {/* Your home page content will go here */}
           <div className="p-4">

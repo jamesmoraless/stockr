@@ -5,7 +5,11 @@ import csv
 import re
 import openai
 import time
+import os
+import requests
+import yfinance as yf
 
+from datetime import datetime, timedelta
 from finvizfinance.quote import finvizfinance
 from finvizfinance.screener.ticker import Ticker
 from finvizfinance.calendar import Calendar
@@ -275,3 +279,103 @@ def cleanup_old_threads():
         print(f"Error in cleanup_old_threads: {str(e)}")
         db.session.rollback()
 
+
+def fetch_historical_price(ticker, date_str):
+    """
+    Fetch historical price data for a ticker on a specific date using Yahoo Finance.
+
+    Args:
+        ticker (str): The stock ticker symbol
+        date_str (str): Date in ISO format (YYYY-MM-DD)
+
+    Returns:
+        float: The closing price for that date, or None if not available
+    """
+    try:
+        # Convert the string date to a datetime object
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        # To handle weekend/holiday, we might need to look a few days back
+        # Get data for a window of 5 days before the requested date
+        start_date = (date - timedelta(days=5)).strftime("%Y-%m-%d")
+        end_date = (date + timedelta(days=1)).strftime("%Y-%m-%d")  # Add one day to include the target date
+
+        # Fetch data from Yahoo Finance
+        data = yf.download(ticker, start=start_date, end=end_date, progress=False)
+
+        if data.empty:
+            print(f"No data returned from yfinance for {ticker} around {date_str}")
+            return None
+
+        # Get the last available date on or before the requested date
+        data = data[data.index <= pd.Timestamp(date)]
+        if data.empty:
+            print(f"No data on or before {date_str} for {ticker}")
+            return None
+
+        # Get the closing price from the most recent date
+        latest_date = data.index[-1]
+        price = float(data.loc[latest_date, 'Close'])
+
+        print(f"Found price for {ticker} on {latest_date.strftime('%Y-%m-%d')}: ${price:.2f}")
+        return price
+
+    except Exception as e:
+        print(f"Error fetching historical price for {ticker} on {date_str}: {e}")
+        return None
+
+
+def fetch_batch_historical_prices(ticker, start_date, end_date=None):
+    """
+    Fetch historical prices for a ticker within a date range using Yahoo Finance.
+
+    Args:
+        ticker (str): The stock ticker symbol
+        start_date (str): Start date in ISO format (YYYY-MM-DD)
+        end_date (str, optional): End date in ISO format. Defaults to current date.
+
+    Returns:
+        dict: Map of dates to closing prices
+    """
+    if end_date is None:
+        end_date = datetime.now().date().isoformat()
+
+    try:
+        # Add a buffer day at the beginning and end to ensure we get the exact dates
+        start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        adjusted_start = (start_date_obj - timedelta(days=5)).strftime("%Y-%m-%d")
+        adjusted_end = (end_date_obj + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # Fetch data from Yahoo Finance
+        data = yf.download(ticker, start=adjusted_start, end=adjusted_end, progress=False)
+
+        if data.empty:
+            print(f"No data returned from yfinance for {ticker} between {start_date} and {end_date}")
+            return {}
+
+        # Convert DataFrame to dictionary mapping dates to closing prices
+        prices = {}
+        for date, row in data.iterrows():
+            date_str = date.strftime("%Y-%m-%d")
+            # Only include dates in our requested range
+            if start_date <= date_str <= end_date:
+                prices[date_str] = float(row['Close'])
+
+        if prices:
+            print(f"Fetched {len(prices)} historical prices for {ticker} from {start_date} to {end_date}")
+            # Print a few sample prices for debugging
+            sample_keys = list(prices.keys())
+            if len(sample_keys) > 3:
+                sample_keys = [sample_keys[0], sample_keys[len(sample_keys) // 2], sample_keys[-1]]
+            for key in sample_keys:
+                print(f"{key}: ${prices[key]:.2f}")
+        else:
+            print(f"No prices found in the specified range for {ticker}")
+
+        return prices
+
+    except Exception as e:
+        print(f"Error fetching batch historical prices for {ticker}: {e}")
+        return {}

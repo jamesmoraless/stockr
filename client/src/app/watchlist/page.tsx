@@ -6,13 +6,7 @@ import ProtectedRoute from "@/components/protectedroute";
 import StockHistoricalChart from "@/components/stockhistoricalchart";
 import CryptoHistoricalChart from "@/components/cryptohistoricalchart";
 import AddStock from "@/components/addstock"; // New component import
-import { Kaisei_HarunoUmi } from "next/font/google";
 import { createPortal } from "react-dom";
-
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
 
 interface WatchlistItem {
   ticker: string;
@@ -79,7 +73,6 @@ export default function Home() {
     const fetchWatchlist = async () => {
       try {
         const token = await getFirebaseIdToken();
-        console.log("Fetched token:", token);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/watchlist/stocks`,
           {
@@ -95,7 +88,6 @@ export default function Home() {
         }
         const data = await response.json();
         setWatchlist(data);
-        console.log(data);
       } catch (error) {
         console.error("Error fetching watchlist:", error);
       } finally {
@@ -124,7 +116,6 @@ export default function Home() {
     }
     try {
       const token = await getFirebaseIdToken();
-      console.log("Adding ticker with token:", token);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/watchlist`,
         {
@@ -228,7 +219,7 @@ export default function Home() {
           </header>
 
           {/* Controls & Table Section */}
-          <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+          <div className={`w-full tracking-[-0.08em]`}>
             <div className="mt-6 h-[400px] overflow-y-auto">
               <table className="min-w-full bg-white">
                 <thead className="bg-gray-50 sticky top-0 z-10">

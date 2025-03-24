@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import SellAssetModal from "@/components/SellAssetModal";
 import PurchaseAssetModal from "@/components/PurchaseAssetModal";
@@ -8,30 +8,22 @@ import StockHistoricalChartPersonal from "@/components/stockhistoricalchart_pers
 import InsertCsvModal from "@/components/InsertCsvModal";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 
-const kaisei = { className: "font-kaisei" };
-
-const grayShades = [
-  "#F0F0F0", "#E3E3E3", "#D7D7D7", "#CACACA",
-  "#BDBDBD", "#B1B1B1", "#A4A4A4", "#989898",
-  "#8B8B8B", "#7E7E7E", "#727272", "#656565",
-  "#585858", "#4C4C4C", "#3F3F3F", "#333333",
-  "#262626", "#191919", "#0D0D0D", "#000000",
-];
-
 interface PortfolioEntry {
   ticker: string;
   shares: number;
-  average_cost: number;
   book_value: number;
+  average_cost: number;
+  market_price?: number | null;
   market_value?: number | null;
-  portfolio_percentage: number;
+  portfolio_percentage?: number;
   color?: string;
 }
 
 interface PortfolioTableProps {
-  refresh: number;
+  portfolioData: PortfolioEntry[];
   portfolioId: string | null;
   onAssetAdded: () => void;
+  onRefreshMarketPrices: () => void;
 }
 
 async function getFirebaseIdToken(): Promise<string> {
@@ -50,13 +42,11 @@ async function getFirebaseIdToken(): Promise<string> {
 }
 
 const PortfolioTable: React.FC<PortfolioTableProps> = ({
-  refresh,
+  portfolioData,
   portfolioId,
   onAssetAdded,
+  onRefreshMarketPrices
 }) => {
-  const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
   const [selectedAsset, setSelectedAsset] = useState<PortfolioEntry | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
@@ -65,73 +55,6 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
   const [isCsvModalOpen, setIsCsvModalOpen] = useState<boolean>(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Fetch portfolio data
-  const fetchPortfolio = async () => {
-    if (!portfolioId) return;
-    setLoading(true);
-    setError("");
-    try {
-      const token = await getFirebaseIdToken();
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${portfolioId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error("Failed to fetch portfolio");
-      const data = await res.json();
-      setPortfolio(calculatePortfolioPercentage(data.portfolio));
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch market prices for portfolio assets (triggered manually via refresh button)
-  const fetchMarketPrices = async () => {
-    if (portfolio.length === 0) return;
-    setLoading(true);
-    try {
-      const updatedPortfolio = await Promise.all(
-        portfolio.map(async (entry) => {
-          const token = await getFirebaseIdToken();
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/stock/current/${entry.ticker}`,
-            {
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          if (!response.ok) throw new Error("Failed to fetch market price");
-          const data = await response.json();
-          const price = data.market_price !== "N/A" ? data.market_price : null;
-          return { ...entry, market_value: price };
-        })
-      );
-      setPortfolio(updatedPortfolio);
-    } catch {
-      // Optionally set an error here
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calculate portfolio percentage for each asset and assign a grayscale color
-  const calculatePortfolioPercentage = (portfolio: PortfolioEntry[]): PortfolioEntry[] => {
-    const totalBookValue = portfolio.reduce((acc, entry) => acc + entry.book_value, 0);
-    return portfolio.map((entry, index) => ({
-      ...entry,
-      portfolio_percentage: totalBookValue > 0 ? (entry.book_value / totalBookValue) * 100 : 0,
-      color: grayShades[index % grayShades.length],
-    }));
-  };
 
   const openSellModal = (asset: PortfolioEntry) => {
     setSelectedAsset(asset);
@@ -145,35 +68,32 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
   };
 
   const handleAssetSold = async () => {
-    await fetchPortfolio();
+    onAssetAdded(); // Refresh all components after selling an asset
     setIsSellModalOpen(false);
   };
 
   // Called after an asset is added via the PurchaseAssetModal
   const handleAssetAdded = async () => {
     setIsAssetModalOpen(false);
-    onAssetAdded(); // Let the parent know so it can refresh other parts (e.g. DoughnutGraph)
-    await fetchPortfolio();
+    onAssetAdded(); // Refresh all components
   };
 
-  useEffect(() => {
-    // Re-fetch the portfolio whenever refresh changes or we get a valid portfolioId
-    fetchPortfolio();
-  }, [refresh, portfolioId]);
-
-  // Remove the useEffect that calls fetchMarketPrices whenever portfolio changes.
-  // Instead, fetch market prices only when the user clicks the refresh button.
+  // Called after CSV upload is successful
+  const handleCsvUploadSuccess = () => {
+    onAssetAdded(); // Refresh all components
+    setIsCsvModalOpen(false);
+  };
 
   return (
-    <div className={`${kaisei.className} w-full`}>
+    <div className="w-full">
       {/* Top Buttons Always Visible */}
-      <div className="mt-4 flex justify-end space-x-2">
+      <div className="flex justify-end">
         {/* Insert CSV Section */}
         <button
           onClick={() => setIsCsvModalOpen(true)}
-          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+          className="w-6 h-8 flex items-center justify-center transition-all"
         >
-          <span className="relative w-5 h-5 flex items-center justify-center">
+          <span className="relative w-4 h-4 flex items-center justify-center">
             <i className="fa-solid fa-file-csv text-gray-400"></i>
           </span>
         </button>
@@ -181,26 +101,26 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
         {/* Add Asset Button */}
         <button
           onClick={() => setIsAssetModalOpen(true)}
-          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+          className="w-6 h-8 flex items-center justify-center transition-all"
         >
-          <span className="relative w-5 h-5 flex items-center justify-center">
+          <span className="relative w-4 h-4 flex items-center justify-center">
             <i className="fas fa-plus text-gray-400"></i>
           </span>
         </button>
 
         {/* Refresh Market Prices */}
         <button
-          onClick={fetchMarketPrices}
-          className="w-10 h-10 flex items-center justify-center border rounded transition-all"
+          onClick={onRefreshMarketPrices}
+          className="w-6 h-8 flex items-center justify-center transition-all"
         >
-          <span className="relative w-5 h-5 flex items-center justify-center">
+          <span className="relative w-4 h-4 flex items-center justify-center">
             <i className="fas fa-rotate-right text-gray-400"></i>
           </span>
         </button>
       </div>
 
       {/* Table */}
-      <div className="mt-6 h-[400px] overflow-y-auto tracking-[-0.08em]">
+      <div className="mt-1 h-[350px] overflow-y-auto tracking-[-0.08em]">
         <table className="min-w-full bg-white">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
@@ -214,45 +134,32 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y">
-
-            {loading ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center">
-                    <img src="/spinner.svg" alt="Loading spinner ..." className="mx-auto w-8 h-8"/>
-                  </td>
-                </tr>
-            ) : error ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center text-red-500">
-                    Error: {error}
-                </td>
-              </tr>
-            ) : portfolio.length === 0 ? (
+            {portfolioData.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-4 text-center tracking-[-0.08em]">
                   Import your individual stocks or your portfolio.
                 </td>
               </tr>
             ) : (
-              portfolio.map((entry, index) => (
+              portfolioData.map((entry, index) => (
                 <tr key={index} className="border-t border-gray-200">
-                  <td className="py-4 px-6">{entry.ticker}</td>
-                  <td className="py-4 px-6">{entry.shares}</td>
-                  <td className="py-4 px-6">${entry.average_cost.toFixed(2)}</td>
-                  <td className="py-4 px-6">${entry.book_value.toFixed(2)}</td>
-                  <td className="py-4 px-6">
+                  <td className="px-4">{entry.ticker}</td>
+                  <td className="px-4">{entry.shares}</td>
+                  <td className="px-4">${entry.average_cost.toFixed(2)}</td>
+                  <td className="px-4">${entry.book_value.toFixed(2)}</td>
+                  <td className="px-4">
                     {entry.market_value != null && !isNaN(Number(entry.market_value))
                       ? `$${Number(entry.market_value).toFixed(2)}`
                       : "N/A"}
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="px-4">
                     <div>
-                      <span>{entry.portfolio_percentage.toFixed(2)}%</span>
+                      <span>{(entry.portfolio_percentage || 0).toFixed(2)}%</span>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="h-2 rounded-full transition-all duration-300"
                           style={{
-                            width: `${entry.portfolio_percentage}%`,
+                            width: `${entry.portfolio_percentage || 0}%`,
                             backgroundColor: "#333333",
                           }}
                         ></div>
@@ -278,18 +185,16 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
                             </button>
                           </li>
                           <li>
-
                             <button
-                                disabled
+                              disabled
                               onClick={() => {
                                 setSelectedAssetForChart(entry);
                                 setDropdownOpen(null);
                               }}
-                              className="block px-4 py-2 text-black tracking-[-0.08em] hover:bg-gray-100 w-full text-left"
+                              className="block px-4 py-2 text-black tracking-[-0.08em] w-full text-left"
                             >
                               Explore
                             </button>
-
                           </li>
                         </ul>
                       </div>
@@ -327,10 +232,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
         <InsertCsvModal
           portfolioId={portfolioId}
           onClose={() => setIsCsvModalOpen(false)}
-          onUploadSuccess={() => {
-            onAssetAdded(); // Refresh the portfolio
-            setIsCsvModalOpen(false);
-          }}
+          onUploadSuccess={handleCsvUploadSuccess}
         />
       )}
 

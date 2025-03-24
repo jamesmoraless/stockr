@@ -9,7 +9,6 @@ const config = {
     extend: {
       fontFamily: {
         inter: ["var(--font-inter)", "sans-serif"],
-        kaisei: ["var(--font-kaisei)", "serif"],
       },
     },
   },

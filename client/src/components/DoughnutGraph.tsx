@@ -1,132 +1,128 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import { getAuth } from "firebase/auth";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-interface DoughnutEntryProps {
-  refresh: number;
-  portfolioId: string | null;
-}
-
 interface PortfolioEntry {
   ticker: string;
+  shares: number;
   book_value: number;
+  average_cost: number;
+  market_price?: number | null;
+  market_value?: number | null;
+  portfolio_percentage?: number;
+  color?: string;
 }
 
-async function getFirebaseIdToken(): Promise<string> {
-  const auth = getAuth();
-  return new Promise((resolve, reject) => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      unsubscribe();
-      if (user) {
-        const token = await user.getIdToken();
-        resolve(token);
-      } else {
-        resolve("");
-      }
-    }, reject);
-  });
+interface DoughnutGraphProps {
+  portfolioData: PortfolioEntry[];
+  totalValue: number;
 }
 
-const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh, portfolioId }) => {
-  const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
+const DoughnutGraph: React.FC<DoughnutGraphProps> = ({
+  portfolioData,
+  totalValue
+}) => {
+  // Calculate total portfolio value using market_value (shares * market_price)
+  const sumOfAllAssetValues = totalValue ||
+    portfolioData.reduce((total, asset) => total + Number(asset.market_value || 0), 0);
 
-  useEffect(() => {
-    if (!portfolioId) return;
-
-    const fetchPortfolioData = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const token = await getFirebaseIdToken();
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/graph/${portfolioId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch portfolio data");
-        }
-
-        const data = await response.json();
-        setPortfolio(data.portfolio || []);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  if (portfolioData.length === 0 || sumOfAllAssetValues <= 0) {
+    // Create empty chart data with placeholder segments
+    const emptyChartData = {
+      labels: ['No Data'],
+      datasets: [
+        {
+          data: [1],
+          backgroundColor: ['#e5e5e5'],
+          borderColor: ['#f5f5f5'],
+          borderWidth: 1,
+          hoverOffset: 0,
+        },
+      ],
     };
 
-    fetchPortfolioData();
-  }, [refresh, portfolioId]);
-
-  if (!portfolioId) return <p>Loading portfolio...</p>;
-  if (loading) return <p>Loading chart...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  // Calculate total portfolio value
-  const sumOfAllAssetValues = portfolio.reduce(
-    (total, asset) => total + asset.book_value,
-    0
-  );
-
-  // Define chart data. If there are no assets, use an empty dataset.
-  const chartData =
-    portfolio.length > 0
-      ? {
-          labels: portfolio.map((asset) => asset.ticker),
-          datasets: [
-            {
-              data: portfolio.map((asset) => asset.book_value),
-              backgroundColor: [
-                "#F0F0F0",
-                "#E3E3E3",
-                "#D7D7D7",
-                "#CACACA",
-                "#BDBDBD",
-                "#B1B1B1",
-                "#A4A4A4",
-                "#989898",
-                "#8B8B8B",
-                "#7E7E7E",
-                "#727272",
-                "#656565",
-                "#585858",
-                "#4C4C4C",
-                "#3F3F3F",
-                "#333333",
-                "#262626",
-                "#191919",
-                "#0D0D0D",
-                "#000000",
-              ],
-              hoverOffset: 10,
+    // Create empty chart options with proper TypeScript typing
+    const emptyOptions = {
+      maintainAspectRatio: false,
+      cutout: "40%" as const,
+      layout: {
+        padding: {
+          bottom: 20,
+        },
+      },
+      plugins: {
+        tooltip: {
+          enabled: false
+        },
+        legend: {
+          // Display an empty legend to match the spacing of the data view
+          display: true,
+          position: "bottom" as const,
+          labels: {
+            padding: 20,
+            color: "#e5e5e5", // Light gray to make it less prominent
+            // Use a very small font to minimize space while maintaining structure
+            font: {
+              size: 0
             },
-          ],
+            boxWidth: 0,
+          },
+        },
+      },
+      // Disable all hover/click interactions
+      hover: {
+        mode: null as any
+      },
+    };
+
+    return (
+      <div className="doughnut-container">
+        <p className="text-xl tracking-[-0.08em] flex-1 max-w-2xl mb-3 text-gray-400">
+          Total Portfolio Value: $0
+        </p>
+        <div className="doughnut-wrapper relative">
+          <Doughnut data={emptyChartData} options={emptyOptions} />
+        </div>
+
+        <style jsx>{`
+        .doughnut-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          max-width: 450px;
+          margin: auto;
+          padding: 10px;
         }
-      : {
-          labels: [],
-          datasets: [
-            {
-              data: [],
-              backgroundColor: [],
-              hoverOffset: 10,
-            },
-          ],
-        };
+        
+        .doughnut-wrapper {
+          width: 90%;
+          height: 250px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Define chart data
+  const chartData = {
+    labels: portfolioData.map((asset) => asset.ticker),
+    datasets: [
+      {
+        data: portfolioData.map((asset) => Number(asset.market_value || 0)),
+        backgroundColor: portfolioData.map((asset) => asset.color),
+        hoverOffset: 10,
+      },
+    ],
+  };
 
   const options = {
     maintainAspectRatio: false,
@@ -160,32 +156,32 @@ const DoughnutGraph: React.FC<DoughnutEntryProps> = ({ refresh, portfolioId }) =
 
   return (
     <div className="doughnut-container">
-      <p className="text-2xl tracking-[-0.08em] flex-1 max-w-2xl mb-3">
+      <p className="text-xl tracking-[-0.08em] flex-1 max-w-2xl mb-3">
         Total Portfolio Value: ${sumOfAllAssetValues.toLocaleString()}
       </p>
       <div className="doughnut-wrapper">
-        <Doughnut data={chartData} options={options} />
+        <Doughnut data={chartData} options={options}/>
       </div>
 
       <style jsx>{`
-        .doughnut-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          max-width: 500px;
-          margin: auto;
-          padding: 20px;
-        }
-
-        .doughnut-wrapper {
-          width: 100%;
-          height: 300px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
+      .doughnut-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 450px;
+      margin: auto;
+      padding: 10px;
+      }
+      
+      .doughnut-wrapper {
+      width: 100%;
+      height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      }
       `}</style>
     </div>
   );

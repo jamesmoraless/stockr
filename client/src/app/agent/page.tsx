@@ -4,12 +4,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import ProtectedRoute from "@/components/protectedroute";
-import { Kaisei_HarunoUmi } from "next/font/google";
-
-const kaisei = Kaisei_HarunoUmi({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
 
 interface Message {
   id: string;
@@ -185,7 +179,7 @@ export default function AgentPage() {
           </header>
 
           {/* Content Section - This will be scrollable */}
-          <div className={`${kaisei.className} w-full tracking-[-0.08em]`}>
+          <div className={`w-full tracking-[-0.08em]`}>
             {/* Chat box with fixed height and scrollable content, similar to watchlist table */}
             <div className="mt-6 h-[300px] overflow-hidden border border-gray-200 rounded-lg">
               <div className="h-full overflow-y-auto">

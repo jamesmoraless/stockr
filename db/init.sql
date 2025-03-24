@@ -46,5 +46,14 @@ CREATE TABLE IF NOT EXISTS watchlist (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- User Threads table
+CREATE TABLE IF NOT EXISTS user_threads (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    thread_id VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_portfolio_holdings_ticker ON portfolio_holdings(ticker);
 CREATE INDEX idx_transactions_ticker ON transactions(ticker);
