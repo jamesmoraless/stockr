@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from models import db, User, Watchlist, Portfolio, Transaction, PortfolioHolding, UserThread
-from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_stock_data, fetch_market_price, recalc_portfolio, fetch_stock_sector, wait_for_run_completion, cleanup_old_threads, fetch_historical_price, fetch_batch_historical_prices
+from helpers import convert_data, safe_convert, parse_csv_with_mapping, fetch_stock_data, fetch_market_price, recalc_portfolio, fetch_stock_sector, wait_for_run_completion, cleanup_old_threads, fetch_historical_price, fetch_batch_historical_prices, fetch_market_benchmarks
 
 openai.api_key = os.getenv("OPENAI_AGENT_API_KEY")
 ASSISTANT_ID = os.getenv("STOCKR_ASSISTANT_ID")
@@ -885,21 +885,68 @@ def register_routes(app):
             if not portfolio:
                 return jsonify({"error": "No portfolio found for this user"}), 404
 
-            # Retrieve portfolio holdings
+            # Retrieve portfolio holdings and benchmarks
             portfolio_entries = PortfolioHolding.query.filter_by(portfolio_id=portfolio.id).all()
+            benchmarks = fetch_market_benchmarks()
+
             if not portfolio_entries:
                 # Provide a default message if no holdings exist.
                 portfolio_context = "You currently do not have any portfolio holdings."
             else:
+                portfolio_context = "Market Benchmarks:\n"
+
+                if "error" not in benchmarks:
+                    for name, data in benchmarks.items():
+                        portfolio_context += (
+                            f"{name}: Current: ${data['current']:.2f}, "
+                            f"1-Week: {data['weekly_change_pct']:.2f}%, "
+                            f"1-Month: {data['monthly_change_pct']:.2f}%\n"
+                        )
+                else:
+                    portfolio_context += "Market benchmark data unavailable.\n"
                 portfolio_context = "Portfolio Holdings:\n"
                 for entry in portfolio_entries:
-                    sector = fetch_stock_sector(entry.ticker) or "Unknown"
-                    total_value = float(entry.shares) * float(entry.average_cost)
-                    portfolio_context += (
-                        f"- {entry.ticker.upper()} ({sector}): "
-                        f"{float(entry.shares):.2f} shares at avg ${float(entry.average_cost):.2f}, "
-                        f"total value ${total_value:.2f}. More info: https://ca.finance.yahoo.com/quote/{entry.ticker.upper()}\n"
-                    )
+                    # Get detailed stock data
+                    try:
+                        stock_data = fetch_stock_data(entry.ticker)
+                        fundamentals = stock_data.get('fundamentals', {})
+                        sector = fundamentals.get('sector') or fetch_stock_sector(entry.ticker) or "Unknown"
+                        total_value = float(entry.shares) * float(entry.average_cost)
+                        current_price = fundamentals.get('current_price', 'N/A')
+
+                        # Calculate performance metrics
+                        market_value = float(entry.shares) * float(
+                            current_price.replace('$', '').replace(',', '')) if isinstance(current_price,
+                                                                                           str) and current_price != 'N/A' else total_value
+                        gain_loss = market_value - total_value
+                        gain_loss_percentage = (gain_loss / total_value) * 100 if total_value > 0 else 0
+
+                        # Format the portfolio entry with detailed metrics
+                        portfolio_context += (
+                            f"- {entry.ticker.upper()} ({sector}): "
+                            f"{float(entry.shares):.2f} shares at avg ${float(entry.average_cost):.2f}, "
+                            f"total value ${total_value:.2f}. "
+                            f"Current price: {current_price}, Market value: ${market_value:.2f}, "
+                            f"Gain/Loss: ${gain_loss:.2f} ({gain_loss_percentage:.2f}%). "
+                            f"P/E: {fundamentals.get('pe_ratio', 'N/A')}, "
+                            f"Forward P/E: {fundamentals.get('forward_pe', 'N/A')}, "
+                            f"PEG: {fundamentals.get('peg_ratio', 'N/A')}, "
+                            f"52W High: {fundamentals.get('52_week_high', 'N/A')}, "
+                            f"52W Low: {fundamentals.get('52_week_low', 'N/A')}, "
+                            f"Profit Margin: {fundamentals.get('profit_margin', 'N/A')}, "
+                            f"ROE: {fundamentals.get('roe', 'N/A')}, "
+                            f"Debt/Equity: {fundamentals.get('debt_eq', 'N/A')}, "
+                            f"Beta: {fundamentals.get('beta', 'N/A')}, "
+                            f"Market Cap: {fundamentals.get('market_cap', 'N/A')}.\n"
+                        )
+                    except Exception as e:
+                        # Fallback to basic information if fetching detailed data fails
+                        sector = fetch_stock_sector(entry.ticker) or "Unknown"
+                        total_value = float(entry.shares) * float(entry.average_cost)
+                        portfolio_context += (
+                            f"- {entry.ticker.upper()} ({sector}): "
+                            f"{float(entry.shares):.2f} shares at avg ${float(entry.average_cost):.2f}, "
+                            f"total value ${total_value:.2f}. (Error fetching detailed metrics: {str(e)})\n")
 
             # Create a new thread
             try:
@@ -934,8 +981,7 @@ def register_routes(app):
             try:
                 run = openai.beta.threads.runs.create(
                     thread_id=thread.id,
-                    assistant_id=ASSISTANT_ID,
-                    instructions="Please use the provided portfolio context to generate an insightful and actionable answer."
+                    assistant_id=ASSISTANT_ID
                 )
             except Exception as e:
                 app.logger.error(f"Error starting OpenAI run: {e}")
@@ -963,8 +1009,9 @@ def register_routes(app):
             assistant_response = assistant_message.content[0].text.value
 
             # Store the thread for future messages
+            # Store the thread for future messages
             user_thread = UserThread(
-                user_id=g.user.id,
+                user_id=str(g.user.id),
                 thread_id=thread.id,
                 created_at=datetime.now()
             )
@@ -998,7 +1045,7 @@ def register_routes(app):
                 return jsonify({"error": "Question is required"}), 400
 
             # Verify the thread exists and belongs to this user
-            user_thread = UserThread.query.filter_by(user_id=g.user.id, thread_id=thread_id).first()
+            user_thread = UserThread.query.filter_by(user_id=str(g.user.id), thread_id=thread_id).first()
             if not user_thread:
                 return jsonify({"error": "Thread not found or unauthorized"}), 404
 
@@ -1040,8 +1087,7 @@ def register_routes(app):
             # Run the Assistant
             run = openai.beta.threads.runs.create(
                 thread_id=thread_id,
-                assistant_id=ASSISTANT_ID,
-                instructions="Please use the provided portfolio context to generate an insightful and actionable answer."
+                assistant_id=ASSISTANT_ID
             )
 
             # Wait for the run to complete

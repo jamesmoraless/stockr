@@ -379,3 +379,38 @@ def fetch_batch_historical_prices(ticker, start_date, end_date=None):
     except Exception as e:
         print(f"Error fetching batch historical prices for {ticker}: {e}")
         return {}
+
+def fetch_market_benchmarks():
+    """Fetch performance data for major market indices"""
+    try:
+        # Get S&P 500, Nasdaq, and Dow Jones data
+        benchmarks = {
+            "S&P500": "^GSPC",
+            "NASDAQ": "^IXIC",
+            "DOW": "^DJI"
+        }
+
+        result = {}
+        for name, ticker in benchmarks.items():
+            data = yf.Ticker(ticker)
+            hist = data.history(period="1mo")  # Get 1 month of data
+
+            if not hist.empty:
+                # Calculate performance metrics
+                current = hist['Close'].iloc[-1]
+                week_ago = hist['Close'].iloc[-5] if len(hist) >= 5 else hist['Close'].iloc[0]
+                month_ago = hist['Close'].iloc[0]
+
+                # Calculate percentage changes
+                weekly_change = ((current - week_ago) / week_ago) * 100
+                monthly_change = ((current - month_ago) / month_ago) * 100
+
+                result[name] = {
+                    "current": current,
+                    "weekly_change_pct": weekly_change,
+                    "monthly_change_pct": monthly_change
+                }
+
+        return result
+    except Exception as e:
+        return {"error": str(e)}
