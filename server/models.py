@@ -67,7 +67,7 @@ class UserThread(db.Model):
     __tablename__ = 'user_threads'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.String(50), nullable=False)  # This is already correct
     thread_id = db.Column(db.String(50), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     last_used = db.Column(db.DateTime, nullable=False, default=datetime.now)

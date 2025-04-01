@@ -181,7 +181,7 @@ export default function AgentPage() {
           {/* Content Section - This will be scrollable */}
           <div className={`w-full tracking-[-0.08em]`}>
             {/* Chat box with fixed height and scrollable content, similar to watchlist table */}
-            <div className="mt-6 h-[300px] overflow-hidden border border-gray-200 rounded-lg">
+            <div className="mt-6 h-[300px] overflow-hidden border border-gray-200 rounded-lg relative">
               <div className="h-full overflow-y-auto">
                 {showWelcomeScreen ? (
                   <div className="flex flex-col items-center justify-center h-full">
@@ -219,6 +219,19 @@ export default function AgentPage() {
                   </div>
                 )}
               </div>
+
+              {/* Reset Chat Button - Fixed position in bottom right corner */}
+              {!showWelcomeScreen && (
+                <button
+                  onClick={resetChat}
+                  className="absolute bottom-3 right-3 w-6 h-8 flex items-center justify-center transition-all z-20"
+                  title="Clear conversation"
+                >
+                  <span className="relative w-4 h-4 flex items-center justify-center">
+                    <i className="fas fa-rotate-right text-gray-400"></i>
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Input Area */}
