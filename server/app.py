@@ -18,7 +18,10 @@ def create_app():
     CORS(
         app,
         resources={r"/api/*": {
-            "origins": "http://localhost:3000",
+            "origins": [
+                "http://localhost:3000",
+                "https://stockr-frontend-production.up.railway.app"
+            ],
             "allow_headers": ["Authorization", "Content-Type"],
             "methods": ["GET", "POST", "DELETE", "OPTIONS"]
         }},
