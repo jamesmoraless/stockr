@@ -1,5 +1,5 @@
 FROM node:18
 WORKDIR /app
-COPY client/ .
+COPY . .
 RUN npm install
 CMD ["npm", "run", "dev"]
