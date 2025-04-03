@@ -20,7 +20,8 @@ def create_app():
         resources={r"/api/*": {
             "origins": [
                 "http://localhost:3000",
-                "https://stockr-frontend-production.up.railway.app"
+                "https://stockr-frontend-production.up.railway.app",
+                "https://www.stockr.info"
             ],
             "allow_headers": ["Authorization", "Content-Type"],
             "methods": ["GET", "POST", "DELETE", "OPTIONS"]
